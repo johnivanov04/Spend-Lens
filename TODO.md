@@ -15,26 +15,32 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] `TODO.md`
 - [x] `.env.example`
 - [x] `README.md`
-- [ ] **Get founder approval on scope before writing app code**
+- [x] **Get founder approval on scope before writing app code**
 
 **Done when:** all four planning files exist, scope + non-goals are explicit, and
 the founder approves the plan.
 
 ---
 
-## Phase 1 — App foundation  (est. 1–2 days)
-- [ ] Scaffold Next.js (App Router) + TypeScript + Tailwind
-- [ ] Add deps: `@supabase/supabase-js`, `@supabase/ssr`, `zod`
-- [ ] Supabase clients: browser client + server client (`@supabase/ssr` cookies)
-- [ ] `middleware.ts` to refresh session + gate protected routes
-- [ ] Pages: `/`, `/login`, `/signup` (email/password)
-- [ ] Protected app layout + top nav (Dashboard, Transactions, Settings, Log out)
-- [ ] Empty `/dashboard` shell with `EmptyState`
-- [ ] Auth UX: clear errors, redirect to `/onboarding` after first signup, log out
+## Phase 1 — App foundation  (est. 1–2 days)  ✅
+- [x] Scaffold Next.js (App Router) + TypeScript + Tailwind (Next 16, React 19, Tailwind v4)
+- [x] Add deps: `@supabase/supabase-js`, `@supabase/ssr`, `zod`
+- [x] Supabase clients: browser client + server client (`@supabase/ssr` cookies)
+- [x] `middleware.ts` to refresh session + gate protected routes
+- [x] Pages: `/`, `/login`, `/signup` (email/password)
+- [x] Protected app layout + top nav (Dashboard, Transactions, Settings, Sign out)
+- [x] Empty `/dashboard` shell with `EmptyState` + placeholder summary cards
+- [x] Auth UX: clear errors, redirect to `/onboarding` after first signup, sign out
+- [x] Email-confirmation handler (`/auth/confirm`) + sign-out route
+- [x] Placeholder pages for nav routes so the app is fully navigable
 
 **Done when:** app runs locally (`npm run dev`); a user can sign up, log in, and log
 out; logged-out users hitting protected routes are redirected to `/login`; auth
 state is reflected in the UI.
+
+**Status:** Build passes; dev server verified — landing/login/signup render and
+`/dashboard` redirects to `/login`. Live auth (sign up / log in / log out) needs
+Supabase keys in `.env.local`; everything is wired and ready for them.
 
 ---
 
