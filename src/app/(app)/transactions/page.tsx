@@ -1,13 +1,19 @@
 import { requireFamilyContext } from "@/lib/server-context";
-import { listTransactionsForFamily } from "@/lib/data/transactions";
+import { listChildren } from "@/lib/data/family";
+import { listTransactionsWithClassification } from "@/lib/data/classifications";
 import {
   TransactionListActions,
-  TransactionTable,
+  TransactionsTable,
 } from "@/components/transactions/transaction-table";
+import { ClassifyAllButton } from "@/components/transactions/classify-all-button";
 
 export default async function TransactionsPage() {
   const { supabase, family } = await requireFamilyContext();
-  const transactions = await listTransactionsForFamily(supabase, family.id);
+  const [rows, children] = await Promise.all([
+    listTransactionsWithClassification(supabase, family.id),
+    listChildren(supabase, family.id),
+  ]);
+  const hasUnclassified = rows.some((r) => !r.classification);
 
   return (
     <div className="flex flex-col gap-6">
@@ -15,12 +21,19 @@ export default async function TransactionsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Transactions</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Every transaction you&apos;ve added, newest first.
+            Classify charges, then review and correct anything that looks off.
           </p>
         </div>
-        <TransactionListActions />
+        <div className="flex flex-col items-end gap-2">
+          {hasUnclassified && <ClassifyAllButton />}
+          <TransactionListActions />
+        </div>
       </div>
-      <TransactionTable transactions={transactions} />
+      <TransactionsTable
+        rows={rows}
+        familyId={family.id}
+        children={children.map((c) => ({ id: c.id, name: c.name }))}
+      />
     </div>
   );
 }

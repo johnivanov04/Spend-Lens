@@ -129,34 +129,39 @@ invalid/duplicate rows. Transactions are saved in Supabase; **Phase 3 tests pass
 
 ---
 
-## Phase 4 — Classification  (est. 2–3 days)
-- [ ] AI provider interface (`classifyTransaction`) — provider-agnostic
-- [ ] **Mock classifier first** (deterministic, no API key needed) behind a flag
-- [ ] Anthropic implementation (`@anthropic-ai/sdk`, default Haiku 4.5)
-- [ ] System + user prompt from `BUILD_PLAN.md` §8
-- [ ] Zod schema for AI JSON (`BUILD_PLAN.md` §7) + strict validation
-- [ ] Apply `merchant_rules` before calling AI (cost control)
-- [ ] Persist to `transaction_classifications` (incl. `raw_ai_response`, `model_name`)
-- [ ] `needs_review` logic: force true if confidence < 0.70 or uncertain kid-child
-- [ ] Retry on invalid JSON; final fallback → store as Needs Review, never crash
-- [ ] `POST /api/transactions/classify` (one or many ids; retry-able)
-- [ ] Wire classification into manual create + CSV import (batch, async-capable)
+## Phase 4 — Classification  (est. 2–3 days)  ✅
+- [x] SQL migration `0003_phase4_classification.sql`: `transaction_classifications`
+      + `merchant_rules` + RLS (chained through the family)
+- [x] Provider-agnostic `classifyTransaction` orchestrator (`src/lib/ai/classifier.ts`)
+- [x] **Mock classifier** (deterministic, no key) — default `AI_PROVIDER=mock`
+- [x] Real adapters (`anthropic` + `openai`) via fetch, behind `AI_PROVIDER` + server-only keys
+- [x] System + user prompt (`src/lib/ai/prompt.ts`) — no-guess-child, strict JSON, cautious
+- [x] Zod schema + strict validation (`src/lib/ai/schema.ts`)
+- [x] Apply `merchant_rules` before calling AI (short-circuit, `model_provider='merchant_rule'`)
+- [x] Persist to `transaction_classifications` (incl. `raw_model_output`, provider, model)
+- [x] confidence→label + `needs_review` rules (<0.70 / unclear / uncertain child / fallback)
+- [x] Child guardrail: never assign a child without evidence; strip unknown child + flag review
+- [x] Safe fallback on error/timeout/invalid JSON → stored as Needs Review, never crashes
+- [x] `POST /api/transactions/[id]/classify` + `POST /api/transactions/classify-batch` (≤50, resilient)
+- [x] UI: classification columns, Classify + Classify-all buttons, explanation, **correction form**
+- [x] Dashboard: classified / needs-review counts, by-category summary, recent
+- [x] Server-only AI: keys never `NEXT_PUBLIC_`; frontend calls routes, not providers
 
-**Tests** (priority targets for this phase)
-- [ ] Unit: **AI JSON-schema validation** (Zod) — valid, malformed, missing fields,
-      out-of-enum platform/category, confidence out of range
-- [ ] Unit: **confidence-score logic** → band/label + `needs_review` forcing
-      (<0.70, or uncertain child on a kid-related charge)
-- [ ] Unit: merchant-rule short-circuit (high-confidence rule applied before AI call)
-- [ ] Unit: retry/fallback (invalid JSON → stored as Needs Review, never throws)
-- [ ] Integration: classify route with **mocked AI provider** (no network); assert
-      no child assigned without evidence
-- [ ] Manual: classify a known charge; force a bad-JSON response → confirm safe fallback
+**Tests** ✅ (priority targets covered)
+- [x] Unit: **AI JSON-schema validation** (valid / bad enum / out-of-range / missing)
+- [x] Unit: **confidence→label** + `needs_review` logic
+- [x] Unit: child-assignment guardrail; merchant-rule matching + normalized matching
+- [x] Unit: provider selection (mock vs real by env/key); fallback on error / timeout / invalid JSON
+- [x] Unit: batch summary (continues after a failure); mock classifier behavior
+- [x] Component: classification fields, needs-review badge, Classify + Classify-all, explanation, correction form, dashboard counts
+- [x] API routes: unauthenticated rejected, cross-family 404, valid classify saves, batch continues after failure
+- [x] RLS verification extended for classifications + merchant_rules (now **28 checks**)
+- [x] **42 new tests; full suite 156 passing; `npm run build` passes; mock mode needs no key**
 
 **Done when:** manual and uploaded transactions receive a classification with
 platform/category/kid-related/confidence/explanation; low-confidence results are
 marked **Needs Review**; invalid AI output is handled safely and never breaks the
-app; **Phase 4 tests pass**.
+app; **Phase 4 tests pass**. ✅
 
 ---
 

@@ -148,6 +148,38 @@ async function main() {
     .single();
   check("User A can create a csv_import in their own family", !impErr);
 
+  // Phase 4: A creates a classification + a merchant rule.
+  const { data: classA, error: classErr } = await a
+    .from("transaction_classifications")
+    .insert({
+      transaction_id: txnA.id,
+      family_id: famA.id,
+      kid_related_likelihood: "yes",
+      confidence_score: 0.95,
+      confidence_label: "high",
+      explanation: "RLS test classification",
+      needs_review: false,
+    })
+    .select()
+    .single();
+  if (classErr) {
+    throw new Error(
+      `User A could not create a classification (is the Phase 4 migration applied?): ${classErr.message}`,
+    );
+  }
+  check("User A can create a classification in their own family", Boolean(classA));
+
+  const { error: ruleErr } = await a
+    .from("merchant_rules")
+    .insert({
+      family_id: famA.id,
+      normalized_merchant: "rls test merchant",
+      platform: "Test",
+    })
+    .select()
+    .single();
+  check("User A can create a merchant rule in their own family", !ruleErr);
+
   // --- User B: must not see or touch A's data ---
   const b = await signInClient(B);
 
@@ -262,6 +294,73 @@ async function main() {
     "User B cannot see User A's csv_imports",
     !(bImports ?? []).some((i) => i.family_id === famA.id),
     `B sees ${bImports?.length ?? 0} csv_import row(s) total`,
+  );
+
+  // classifications + merchant_rules isolation (Phase 4)
+  const { data: bClass } = await b
+    .from("transaction_classifications")
+    .select("id, family_id");
+  check(
+    "User B cannot see User A's classifications",
+    !(bClass ?? []).some((c) => c.family_id === famA.id),
+    `B sees ${bClass?.length ?? 0} classification row(s) total`,
+  );
+
+  const { data: bClassById } = await b
+    .from("transaction_classifications")
+    .select("*")
+    .eq("id", classA.id);
+  check(
+    "User B cannot fetch User A's classification by id",
+    (bClassById ?? []).length === 0,
+  );
+
+  const { error: bClassInsErr } = await b
+    .from("transaction_classifications")
+    .insert({
+      transaction_id: txnA.id,
+      family_id: famA.id,
+      kid_related_likelihood: "yes",
+      confidence_score: 1,
+      confidence_label: "high",
+      explanation: "intruder",
+      needs_review: false,
+    })
+    .select()
+    .single();
+  check(
+    "User B cannot insert a classification for User A's transaction",
+    Boolean(bClassInsErr),
+    bClassInsErr ? "rejected by RLS" : "INSERT unexpectedly succeeded",
+  );
+
+  const { data: bClassUpd } = await b
+    .from("transaction_classifications")
+    .update({ explanation: "hacked" })
+    .eq("id", classA.id)
+    .select();
+  check(
+    "User B cannot update User A's classification",
+    (bClassUpd ?? []).length === 0,
+  );
+
+  const { data: bClassDel } = await b
+    .from("transaction_classifications")
+    .delete()
+    .eq("id", classA.id)
+    .select();
+  check(
+    "User B cannot delete User A's classification",
+    (bClassDel ?? []).length === 0,
+  );
+
+  const { data: bRules } = await b
+    .from("merchant_rules")
+    .select("id, family_id");
+  check(
+    "User B cannot see User A's merchant rules",
+    !(bRules ?? []).some((r) => r.family_id === famA.id),
+    `B sees ${bRules?.length ?? 0} merchant rule row(s) total`,
   );
 
   // --- User A: still intact ---

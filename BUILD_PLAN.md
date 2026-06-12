@@ -564,3 +564,29 @@ app stays usable while classification pending.
 - **Status is "Unclassified"** for all Phase 3 transactions (no `transaction_classifications`
   rows yet). Dashboard shows count + recent only; spend analytics wait for classification.
 - **RLS verification extended** to cover transactions + csv_imports isolation (20 checks).
+
+### Phase 4 implementation notes (as built)
+- **Migration `0003_phase4_classification.sql`:** `transaction_classifications`
+  (unique `transaction_id` so re-classifying upserts) + `merchant_rules`
+  (unique `family_id, normalized_merchant`), both RLS-scoped through the family.
+- **Server-only AI.** Classification runs only in API routes
+  (`/api/transactions/[id]/classify`, `/api/transactions/classify-batch`) using the
+  user's RLS session client; provider keys are read from non-public env server-side.
+  The browser calls these routes — never a provider. Corrections (no AI) still use the
+  browser client per the Phase 2/3 pattern.
+- **Provider-agnostic orchestrator** (`src/lib/ai/classifier.ts`): matching merchant
+  rule → selected provider (validated by Zod) → safe fallback. `AI_PROVIDER=mock`
+  (default) needs no key; `anthropic`/`openai` are fetch-based adapters (no SDK
+  dependency) behind the env flag, and fall back to mock if the key is missing.
+- **Schema shape** is the spec's camelCase JSON (`platform`, `merchantFamily`,
+  `category`, `kidRelatedLikelihood`, `confidenceScore`, `childAssignment`,
+  `explanation`, `needsReview`) — a refinement of the earlier §7 schema. We re-derive
+  `confidence_label` and `needs_review` ourselves (don't trust the model's flag), and
+  strip any child id not in the family.
+- **Refinement of §6:** the canonical routes are `/api/transactions/[id]/classify`
+  and `/api/transactions/classify-batch` (the doc's `/classify` with an id list is
+  the batch route).
+- **Real providers are not unit-tested live** (no network in tests); selection,
+  validation, fallback, timeout, and batch logic are all tested with injected
+  providers/mocks. Default models: anthropic `claude-haiku-4-5`, openai `gpt-4o-mini`.
+- **RLS verification extended** to classifications + merchant_rules (now 28 checks).

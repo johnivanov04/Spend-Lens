@@ -52,10 +52,10 @@ Fill in `.env.local`:
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase → Project Settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Supabase → Project Settings → API |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | Supabase → Project Settings → API (**server-only secret**) |
-| `AI_PROVIDER` | yes | `anthropic` (default) or `openai` |
-| `AI_MODEL` | no | defaults to `claude-haiku-4-5` |
-| `ANTHROPIC_API_KEY` | yes (if anthropic) | console.anthropic.com |
-| `OPENAI_API_KEY` | yes (if openai) | platform.openai.com |
+| `AI_PROVIDER` | no | `mock` (default), `anthropic`, or `openai` — **server-only** |
+| `AI_MODEL` | no | optional model override (defaults per provider) |
+| `ANTHROPIC_API_KEY` | only if `anthropic` | console.anthropic.com (**server-only**) |
+| `OPENAI_API_KEY` | only if `openai` | platform.openai.com (**server-only**) |
 | `EMAIL_PROVIDER` + key | no | leave blank to mock weekly-summary email |
 | `STRIPE_*` | no | leave blank — MVP uses a static pricing page |
 | `NEXT_PUBLIC_APP_URL` | yes | `http://localhost:3000` for local |
@@ -73,11 +73,26 @@ Fill in `.env.local`:
      and **Row Level Security** so each user only reads/writes their own family.
    - `0002_phase3_transactions.sql` — `transactions` and `csv_imports`, with RLS
      chained through `families.owner_user_id = auth.uid()`.
+   - `0003_phase4_classification.sql` — `transaction_classifications` and
+     `merchant_rules`, with RLS chained through the owning family.
 3. Confirm **Row Level Security is enabled** on every table (the migration enables
    it; verify under Authentication → Policies).
 4. Email/password auth is enabled by default in Supabase Auth. For the smoothest
    local testing you can disable "Confirm email" (Authentication → Providers →
    Email) so signups log in immediately; otherwise use the emailed confirmation link.
+
+### 3b. AI classification mode
+Classification runs **server-side only** — provider API keys are never exposed to
+the browser and must not be `NEXT_PUBLIC_`.
+
+- **Mock mode (default):** with `AI_PROVIDER=mock` (or unset), a deterministic
+  classifier runs with **no API key**. It usefully classifies common gaming /
+  app-store merchants (Roblox, Apple, Steam, …) so the whole app works offline.
+- **Real provider:** set `AI_PROVIDER=anthropic` (+ `ANTHROPIC_API_KEY`) or
+  `AI_PROVIDER=openai` (+ `OPENAI_API_KEY`). Optionally set `AI_MODEL`. If the
+  selected provider's key is missing, it **safely falls back to mock**. If a real
+  call errors, times out, or returns invalid JSON, the transaction is saved as
+  **Needs review** rather than crashing.
 
 ### 4. Run
 ```bash
@@ -115,11 +130,13 @@ the per-phase checklists in `TODO.md`).
 - Pure business logic (route protection, CSV parsing, validation, aggregation,
   etc.) is extracted into framework-free modules so it can be unit-tested directly.
 
-**What's covered today (Phases 1–2):** utility helpers, route-protection logic,
-Supabase client construction, UI primitives, the app nav, the landing / login /
-signup / dashboard pages, the family/child validators, the families + children
-data-access layer (against a mocked Supabase client), and the onboarding flow,
-kid manager, family-name form, and settings view — 68 tests.
+**What's covered today (Phases 1–4):** auth/route-protection, families/children +
+transactions data layers, CSV parsing/mapping/validation/dedup, receipt extraction,
+the **AI classifier** (schema validation, confidence/needs-review logic, child
+guardrails, merchant-rule matching, provider selection, timeout/error/invalid-JSON
+fallback, batch summary, mock mode), the classify/correction API routes (auth +
+ownership + batch resilience), and the transaction/classification/dashboard UI —
+156 tests. No test calls a real AI API.
 
 **Priority targets as features land:** CSV parsing, column mapping, transaction
 validation, duplicate detection, AI JSON-schema validation, confidence-score
@@ -149,31 +166,41 @@ route behavior.
 6. **CSV upload** — `/transactions/upload` a small CSV (≤2 MB, ≤500 rows). Columns
    auto-map (or use the column mapper); preview shows valid / invalid (with reasons)
    / duplicate rows; **Import** saves valid, non-duplicate rows and shows a summary.
-7. **Transactions list** — `/transactions` shows everything you've added (date,
-   merchant, description, amount, source, status). Status is "Unclassified" until
-   Phase 4.
-8. **Dashboard** — `/dashboard` shows your saved-transaction count and recent
-   transactions. Full spending analytics arrive after classification (Phase 4+).
+7. **Transactions list** — `/transactions` shows everything you've added. Each
+   unclassified row has a **Classify** button; the header has **Classify all
+   unclassified**. After classifying, rows show category, platform, a confidence
+   label, and a status badge (Classified / Needs review / Parent verified).
+8. **Classify** — click **Classify** on a row (or **Classify all unclassified**).
+   In mock mode this needs no API key. Low-confidence or unclear charges are marked
+   **Needs review** and never get a child assigned without evidence.
+9. **Review & correct** — open **Details** on a classified row to read the
+   plain-English explanation and correct the platform / category / kid-related
+   status / child. Your correction overrides the AI; tick "Remember this for
+   similar charges" to save a merchant rule that pre-fills future matches.
+10. **Dashboard** — `/dashboard` shows saved / classified / needs-review counts, a
+    simple by-category summary, and recent transactions. (Full spend analytics come
+    in Phase 5.)
 
-> Phase 3 ingests and stores transactions only. AI classification, the review/
-> correction workflow, weekly summary, and pricing pages come in later phases.
+> Phase 4 adds AI classification + a light correction workflow. The weekly summary
+> and pricing pages come in later phases.
 
 ---
 
 ## Verify the database against a real Supabase project (RLS)
 
 This confirms the schema, auth, onboarding, family/kid profiles, transactions,
-CSV imports, and — most importantly — that **Row Level Security stops one user
-from seeing another user's data.**
+CSV imports, classifications, merchant rules, and — most importantly — that **Row
+Level Security stops one user from seeing another user's data.**
 
 ### A. One-time setup
 1. **Create/open a project** at [supabase.com](https://supabase.com) → *New project*
    (free tier is fine). Wait for it to finish provisioning.
-2. **Run the migrations in order.** Open *SQL Editor* → *New query*, paste the full
-   contents of `supabase/migrations/0001_phase2_family_schema.sql`, *Run*; then do
-   the same for `0002_phase3_transactions.sql`. Both are idempotent. Expect "Success".
+2. **Run the migrations in order** in *SQL Editor* → *New query*: paste/Run
+   `0001_phase2_family_schema.sql`, then `0002_phase3_transactions.sql`, then
+   `0003_phase4_classification.sql`. All are idempotent. Expect "Success" each time.
 3. **Confirm RLS is on.** *Authentication → Policies* should list policies for
-   `profiles`, `families`, `children`, `transactions`, and `csv_imports`.
+   `profiles`, `families`, `children`, `transactions`, `csv_imports`,
+   `transaction_classifications`, and `merchant_rules`.
 4. **Grab your keys.** *Project Settings → API*: copy the **Project URL**, the
    **anon public** key, and the **service_role** key.
 5. **Create `.env.local`** in the repo root:
@@ -195,12 +222,12 @@ from seeing another user's data.**
 npm run verify:rls
 ```
 This signs in two separate users, has User A create a throwaway family, child,
-transaction, and CSV import, then asserts User B **cannot** read, fetch-by-id,
-insert into, update, or delete A's families/children/transactions/csv_imports — and
-that A's data is untouched. It cleans up the throwaway family afterward (cascading to
-its rows). Expect:
+transaction, CSV import, classification, and merchant rule, then asserts User B
+**cannot** read, fetch-by-id, insert into, update, or delete any of A's rows across
+all of those tables — and that A's data is untouched. It cleans up the throwaway
+family afterward (cascading to its rows). Expect:
 ```
-✓ RLS verification PASSED: all 20 checks. Test family cleaned up.
+✓ RLS verification PASSED: all 28 checks. Test family cleaned up.
 ```
 (If `SUPABASE_SERVICE_ROLE_KEY` is set it creates pre-confirmed test users; otherwise
 disable "Confirm email" first so signups return a session.)

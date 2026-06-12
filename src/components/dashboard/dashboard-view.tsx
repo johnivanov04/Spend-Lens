@@ -3,14 +3,21 @@ import { Button } from "@/components/ui";
 import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, cn } from "@/lib/utils";
 import { isRefund, sourceLabel } from "@/lib/transactions/transaction";
-import type { TransactionRow } from "@/lib/data/transactions";
+import { StatusBadge } from "@/components/transactions/classification-badges";
+import type { TransactionWithClassification } from "@/lib/data/classifications";
 
 export function DashboardView({
   transactionCount,
-  recentTransactions,
+  classifiedCount,
+  needsReviewCount,
+  recent,
+  categorySummary,
 }: {
   transactionCount: number;
-  recentTransactions: TransactionRow[];
+  classifiedCount: number;
+  needsReviewCount: number;
+  recent: TransactionWithClassification[];
+  categorySummary: { category: string; count: number }[];
 }) {
   return (
     <div className="flex flex-col gap-8">
@@ -43,20 +50,32 @@ export function DashboardView({
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-slate-200 bg-white p-5">
-              <p className="text-sm text-slate-500">Saved transactions</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">
-                {transactionCount}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-5 sm:col-span-2">
-              <p className="text-sm text-slate-500">Spending insights</p>
-              <p className="mt-2 text-sm text-slate-600">
-                Platform, category, and kid-related summaries appear once
-                classification is enabled (coming next).
-              </p>
-            </div>
+            <StatCard label="Saved transactions" value={transactionCount} />
+            <StatCard label="Classified" value={classifiedCount} />
+            <StatCard
+              label="Needs review"
+              value={needsReviewCount}
+              href="/transactions"
+            />
           </div>
+
+          {categorySummary.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-white p-5">
+              <h2 className="text-base font-semibold text-slate-900">
+                By category
+              </h2>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {categorySummary.map((c) => (
+                  <li
+                    key={c.category}
+                    className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
+                  >
+                    {c.category} · {c.count}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div>
             <div className="mb-3 flex items-center justify-between">
@@ -71,10 +90,10 @@ export function DashboardView({
               </Link>
             </div>
             <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
-              {recentTransactions.map((t) => (
+              {recent.map((t) => (
                 <li
                   key={t.id}
-                  className="flex items-center justify-between px-4 py-3"
+                  className="flex items-center justify-between gap-3 px-4 py-3"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-slate-900">
@@ -82,16 +101,22 @@ export function DashboardView({
                     </p>
                     <p className="text-xs text-slate-400">
                       {t.transaction_date} · {sourceLabel(t.source_type)}
+                      {t.classification?.category
+                        ? ` · ${t.classification.category}`
+                        : ""}
                     </p>
                   </div>
-                  <span
-                    className={cn(
-                      "text-sm font-medium",
-                      isRefund(t.amount) ? "text-amber-700" : "text-slate-900",
-                    )}
-                  >
-                    {formatCurrency(t.amount, t.currency)}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <StatusBadge classification={t.classification} />
+                    <span
+                      className={cn(
+                        "text-sm font-medium",
+                        isRefund(t.amount) ? "text-amber-700" : "text-slate-900",
+                      )}
+                    >
+                      {formatCurrency(t.amount, t.currency)}
+                    </span>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -100,4 +125,22 @@ export function DashboardView({
       )}
     </div>
   );
+}
+
+function StatCard({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: number;
+  href?: string;
+}) {
+  const body = (
+    <div className="rounded-xl border border-slate-200 bg-white p-5">
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+    </div>
+  );
+  return href ? <Link href={href}>{body}</Link> : body;
 }
