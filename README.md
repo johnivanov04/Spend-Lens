@@ -104,10 +104,18 @@ Open http://localhost:3000.
 
 ### 5. Tests
 ```bash
-npm test            # run the unit/component suite once
-npm run test:watch  # re-run on change while developing
+npm test               # unit/component suite (Vitest), 218 tests
+npm run test:watch     # re-run on change while developing
 npm run test:coverage  # run with a V8 coverage report
+npm run test:e2e       # Playwright smoke test (public pages) — see "End-to-end" below
 ```
+
+### 6. Demo data (optional)
+- **Upload sample data:** in the app, upload `demo-data/sample-transactions.csv`
+  or paste `demo-data/sample-receipt.txt`, then click **Classify all unclassified**.
+- **Seed a demo user (safe):** set `DEMO_USER_EMAIL` / `DEMO_USER_PASSWORD` in
+  `.env.local` and run `npm run seed:demo`. It inserts sample transactions for
+  **that one user only**, never deletes anything, and never calls AI or sends email.
 
 ---
 
@@ -141,7 +149,9 @@ ownership + batch resilience), the **analytics layer** (date-range/filter/sort,
 category/platform/child/kid-likelihood grouping, needs-review counts, review queue,
 dashboard summary, query parsing), the **weekly-summary generator** (states, date
 range, text, JSON shape, refunds) + mock mail provider, and the transaction / review
-/ dashboard / summary UI — 208 tests. No test calls a real AI API or sends email.
+/ dashboard / summary UI, plus the pricing/billing/empty/error states and demo-data
+helper — 218 unit/component tests + a Playwright public-pages smoke test. No test
+calls a real AI API or sends email.
 
 **Priority targets as features land:** CSV parsing, column mapping, transaction
 validation, duplicate detection, AI JSON-schema validation, confidence-score
@@ -202,12 +212,17 @@ route behavior.
     the button shows "Email sending not enabled" unless a mail provider is configured —
     no email is ever sent in the MVP.
 
+13. **Pricing** — `/pricing` (public; also linked from the landing page) shows the
+    static early-access plan: free during beta, planned $10–$20/month per family,
+    honest expectations, and privacy copy. No checkout. `/settings/billing` shows a
+    "billing not enabled — free beta" placeholder.
+
 > **Mail is mock-safe.** `MAIL_PROVIDER` defaults to `mock` (no key, no send). Set
 > `MAIL_PROVIDER=resend` + `RESEND_API_KEY` to *label* email as enabled; the MVP
 > still never sends. Real scheduled email is a later phase.
 
-> Phase 6 adds the weekly summary preview. The static pricing page + final polish
-> come next.
+> Phase 7 polishes the MVP for beta: loading/error/empty states, a mobile-responsive
+> pass, the static pricing page, privacy copy, a demo seed, and a Playwright smoke test.
 
 ---
 
@@ -278,7 +293,43 @@ Use two browsers (or a normal + incognito window) so you have two sessions.
       browser devtools console and run a read against A's table; RLS should return an
       empty set, never A's rows. The automated script in **B** does this for you.
 
-If every box checks out, Phase 2's data isolation is verified.
+If every box checks out, data isolation is verified.
+
+---
+
+## End-to-end (Playwright)
+
+A small smoke test confirms the app boots and public pages render:
+```bash
+npx playwright install chromium   # one-time
+npm run test:e2e                  # starts a dev server + runs the smoke test
+npm run test:e2e:ui               # interactive mode
+```
+It deliberately covers **public** routes only (landing / login / signup / pricing,
+plus the protected-route → login redirect), so it needs **no Supabase credentials**
+and stays non-flaky. The authenticated journey (onboarding → add → classify →
+correct → dashboard → summary) is covered by the unit/component suite and the demo
+flow above. It is separate from `npm test` and won't make the unit suite flaky.
+
+---
+
+## Known limitations & what's intentionally not built
+
+**MVP scope is charge decoding + review.** Deliberately out of scope for now:
+bank-feed connections, card issuing, SMS/push alerts, a mobile app, Stripe checkout,
+real scheduled emails, email receipt forwarding, refund automation, screen-time
+tracking, enterprise/multi-parent accounts, child-facing accounts, and legal/financial
+advice.
+
+Other current limitations:
+- **AI is mock by default** and, with a real provider, returns cautious suggestions —
+  it isn't authoritative. Parents correct anything that's wrong.
+- **Email is mocked** — the weekly-summary email button never sends in the MVP.
+- **No pagination** — pages render the full filtered list (fine for MVP volumes).
+- **Analytics run in memory** per request rather than as SQL aggregates.
+- **Date parsing** handles ISO + US slash formats; other locale formats are flagged
+  invalid in CSV preview for you to fix.
+- **Pricing/billing are static** — no checkout; Spend Lens is in free beta.
 
 ---
 

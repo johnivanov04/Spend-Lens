@@ -4,6 +4,7 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { isRefund } from "@/lib/transactions/transaction";
 import { SpendBarChart } from "@/components/dashboard/spend-bar-chart";
 import { RegenerateSummaryButton } from "@/components/summary/regenerate-button";
+import { PrivacyNote } from "@/components/privacy-note";
 import type { WeeklySummaryData } from "@/lib/weekly-summary";
 
 export function WeeklySummaryView({
@@ -47,6 +48,10 @@ export function WeeklySummaryView({
 
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <p className="text-sm leading-6 text-slate-700">{text}</p>
+        <PrivacyNote className="mt-3">
+          AI labels are cautious suggestions — correct anything that looks off in
+          the review queue.
+        </PrivacyNote>
         <Link
           href="/dashboard"
           className="mt-3 inline-block text-sm font-medium text-indigo-600"

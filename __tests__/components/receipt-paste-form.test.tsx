@@ -15,11 +15,14 @@ beforeEach(() => vi.clearAllMocks());
 const RECEIPT = "Roblox\nOrder date: 06/11/2026\nTotal: $54.99";
 
 describe("ReceiptPasteForm", () => {
-  it("renders the receipt textarea and extract button", () => {
+  it("renders the receipt textarea, extract button, and privacy note", () => {
     render(<ReceiptPasteForm familyId="fam1" />);
     expect(screen.getByLabelText("Receipt text")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Extract preview" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Paste only what you're comfortable storing/i),
     ).toBeInTheDocument();
   });
 

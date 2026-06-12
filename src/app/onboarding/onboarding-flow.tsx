@@ -68,6 +68,8 @@ export function OnboardingFlow({ userId }: { userId: string }) {
               <ul className="mt-2 list-disc space-y-1 pl-4">
                 <li>Spend Lens is for parents, not children.</li>
                 <li>We never ask for a bank login or full card numbers.</li>
+                <li>Use nicknames for kids — full legal names aren&apos;t needed.</li>
+                <li>AI classifications are suggestions you can correct anytime.</li>
                 <li>Your data is private to you and you can delete it anytime.</li>
               </ul>
             </div>

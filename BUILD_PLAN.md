@@ -638,3 +638,26 @@ app stays usable while classification pending.
 - **RLS verification extended** to `weekly_summaries` (now 36 checks).
 - **Env rename:** the Phase 0 `EMAIL_PROVIDER` placeholder is superseded by
   `MAIL_PROVIDER` (mock | resend | none) + `RESEND_API_KEY` + `SUMMARY_EMAIL_FROM`.
+
+### Phase 7 implementation notes (as built)
+- **No migration, no RLS changes.** Polish only; reused all existing tables.
+  `verify:rls` is unchanged (36 checks) and confirmed passing on a live project.
+- **Loading/error states** use Next App Router conventions: `(app)/loading.tsx`
+  (skeleton) and `(app)/error.tsx` (client error boundary with retry + a "run your
+  migrations" hint). Plus a friendly root `not-found.tsx`.
+- **Mobile nav fix:** `AppNav` moved the links to an always-visible, horizontally
+  scrollable row (they were `hidden sm:flex`, unreachable on mobile) and now
+  highlights the most-specific matching link.
+- **Pricing is a static public page** (`/pricing`, no auth, no Stripe); `/settings/billing`
+  is a "free beta" placeholder. Copy is honest — no "prevents all spending"/"catches
+  everything" claims, no fake checkout.
+- **Privacy copy** via a shared `PrivacyNote` component in onboarding, CSV upload,
+  receipt paste, the weekly summary, and pricing — no legal guarantees, no
+  "bank-level security" claims.
+- **Demo data:** `src/lib/demo-data.ts` (pure, tested) feeds both a static
+  `demo-data/*.csv|txt` and a **safe** `scripts/seed-demo.mjs` (`npm run seed:demo`)
+  that only inserts for a configured demo user, never deletes, never calls AI/email.
+- **Playwright** is scoped to **public pages** (no Supabase creds) so it's stable and
+  separate from Vitest (`e2e/` testDir; excluded from the Next typecheck). The
+  authenticated journey stays covered by the unit/component suite + manual demo flow —
+  documented as an intentional choice to avoid a brittle, creds-dependent auth E2E.

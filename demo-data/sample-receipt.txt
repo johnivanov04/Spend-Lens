@@ -1,0 +1,11 @@
+Roblox
+Order confirmation
+Order date: 06/11/2026
+
+Item: 800 Robux
+Subtotal: $9.99
+Tax: $0.00
+Total: $9.99
+
+Thanks for your purchase!
+This is sample data for trying the receipt-paste flow in Spend Lens.

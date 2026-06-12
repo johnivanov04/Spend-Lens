@@ -26,6 +26,11 @@ export default function Home() {
             Spend<span className="text-indigo-600">Lens</span>
           </span>
           <div className="flex items-center gap-2">
+            <Link href="/pricing">
+              <Button variant="ghost" size="sm">
+                Pricing
+              </Button>
+            </Link>
             <Link href="/login">
               <Button variant="ghost" size="sm">
                 Log in

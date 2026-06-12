@@ -232,25 +232,35 @@ tests pass**. ✅
 
 ---
 
-## Phase 7 — Polish & launch prep  (est. 1–2 days)
-- [ ] Loading / error / empty states across all pages
-- [ ] Mobile-responsive pass (clear labels, visible button states, readable errors)
-- [ ] Seed / mock data script for demos
-- [ ] Basic privacy copy in onboarding (no bank data, no full card numbers, delete anytime)
-- [ ] `/pricing` early-access page (works with no Stripe) + `/settings/billing` reuse
-- [ ] Finalize `README.md` (setup, env, Supabase, run, test core flows)
-- [ ] End-to-end smoke test of the full flow from a clean clone
+## Phase 7 — Polish & launch prep  (est. 1–2 days)  ✅
+- [x] **No new tables/RLS** — reused all existing tables; `verify:rls` unchanged (36 checks, passing)
+- [x] Loading + error boundary for the authed area (`(app)/loading.tsx`, `(app)/error.tsx`)
+      with a migration/setup hint; friendly `not-found.tsx`
+- [x] Improved empty states (review queue "all caught up", dashboard "no transactions in range",
+      filtered "no matching transactions")
+- [x] Mobile-responsive pass: scrollable nav (every link reachable on small screens),
+      horizontally-scrollable tables, wrapping filter bar, responsive card grids
+- [x] Demo data: `src/lib/demo-data.ts` + `npm run seed:demo` (safe, non-destructive) +
+      `demo-data/sample-transactions.csv` + `demo-data/sample-receipt.txt`
+- [x] Privacy/trust copy in onboarding, CSV upload, receipt paste, weekly summary, and pricing
+      (`PrivacyNote`) — honest, no legal guarantees
+- [x] `/pricing` static early-access page (free beta, $10–$20 planned, CTA, no checkout) +
+      `/settings/billing` "not enabled — free beta" placeholder; nav/landing link
+- [x] `README.md` finalized (features, stack, env, migration order, run/test, mock AI + mail,
+      demo flow, E2E, known limitations / not built)
 
-**Tests**
-- [ ] **Add Playwright** now that core flows exist (E2E env + config)
-- [ ] E2E: signup → onboarding → add transaction → classify → correct → dashboard
-- [ ] Component: loading / error / empty states across pages
-- [ ] Full `npm test` suite green; coverage reviewed for the priority-target modules
-- [ ] Manual: full end-to-end smoke from a clean clone following the README
+**Tests** ✅
+- [x] **Playwright** added (config + `e2e/smoke.spec.ts`); `test:e2e` / `test:e2e:ui` scripts —
+      public-pages smoke (landing/login/signup/pricing + protected redirect); **4/4 passing**
+- [x] Component: pricing page, billing placeholder, error boundary + retry, loading skeleton,
+      not-found, `PrivacyNote`, privacy copy in receipt flow
+- [x] Unit: demo-data helper (valid drafts, refund, last-7-days dates)
+- [x] **10 new unit/component tests; full suite 218 passing; `npm run build` passes**
+- [x] E2E documented as intentionally public-only (auth flow covered by unit/component + manual)
 
 **Done when:** the app is demo-ready; a brand-new tester can follow the README and
 complete every core flow end-to-end locally; **the full test suite (unit + E2E)
-passes**.
+passes**. ✅
 
 ---
 

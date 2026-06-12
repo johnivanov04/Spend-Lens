@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Field, Input, Textarea } from "@/components/ui";
+import { PrivacyNote } from "@/components/privacy-note";
 import { extractReceiptPreview } from "@/lib/transactions/receipt";
 import { validateTransactionInput } from "@/lib/transactions/transaction";
 import { createReceiptTransactionClient } from "@/lib/data/transactions-client";
@@ -85,6 +86,10 @@ export function ReceiptPasteForm({ familyId }: { familyId: string }) {
           Extract preview
         </Button>
       </div>
+      <PrivacyNote>
+        Extraction is a suggestion you can edit before saving. Paste only what
+        you&apos;re comfortable storing.
+      </PrivacyNote>
 
       {extractNote && <Alert tone="info">{extractNote}</Alert>}
 

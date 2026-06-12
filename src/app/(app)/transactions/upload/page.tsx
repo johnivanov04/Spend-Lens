@@ -1,5 +1,6 @@
 import { requireFamilyContext } from "@/lib/server-context";
 import { CsvUploader } from "@/components/transactions/csv-uploader";
+import { PrivacyNote } from "@/components/privacy-note";
 
 export default async function UploadTransactionsPage() {
   const { family } = await requireFamilyContext();
@@ -14,6 +15,11 @@ export default async function UploadTransactionsPage() {
           Import transactions from a bank or card statement export. We&apos;ll
           preview valid, invalid, and duplicate rows before anything is saved.
         </p>
+        <PrivacyNote className="mt-2">
+          Only upload data you&apos;re comfortable storing. You can delete
+          transactions at any time, and you never need to include full card
+          numbers.
+        </PrivacyNote>
       </div>
       <CsvUploader familyId={family.id} />
     </div>
