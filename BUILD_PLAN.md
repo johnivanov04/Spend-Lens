@@ -617,3 +617,24 @@ app stays usable while classification pending.
   (no AI), mark the row **Parent verified**, and can still create a merchant rule.
 - **Conservative language** throughout ("likely" / "unclear" / "needs review"); the
   UI never says "fraud" or "unauthorized".
+
+### Phase 6 implementation notes (as built)
+- **Migration `0004_phase6_weekly_summaries.sql`:** `weekly_summaries` with RLS
+  chained through the family. The `(family_id, period_start, period_end)` index is a
+  **UNIQUE constraint** so "Regenerate preview" upserts the current week's row.
+- **Pure generator** (`src/lib/weekly-summary.ts`) reuses the Phase 5 analytics layer
+  (`filterByDateRange("7d")` + `summarizeDashboard`) — no duplicated aggregation.
+  `generateWeeklySummary` returns `{ period_start, period_end, summary_json, summary_text }`;
+  `summary_json` is the serializable `WeeklySummaryData`.
+- **`/summary` generates live** from current data on each view (always fresh). The
+  **Regenerate** button POSTs to `/api/summary/weekly/preview` to persist a snapshot;
+  the page itself doesn't self-fetch.
+- **Mail is mock-safe.** `src/lib/mail/{provider,mock}.ts` define a `MailProvider`
+  interface + `MockMailProvider`. `resolveMailProvider` defaults to mock; `isEmailEnabled`
+  only returns true for `resend` + a key. **No app code path sends email in Phase 6** —
+  the summary page's email button is disabled/informational. Resend is intentionally not
+  wired to a real send.
+- **Refunds net** into the weekly spend totals (consistent with Phase 5).
+- **RLS verification extended** to `weekly_summaries` (now 36 checks).
+- **Env rename:** the Phase 0 `EMAIL_PROVIDER` placeholder is superseded by
+  `MAIL_PROVIDER` (mock | resend | none) + `RESEND_API_KEY` + `SUMMARY_EMAIL_FROM`.

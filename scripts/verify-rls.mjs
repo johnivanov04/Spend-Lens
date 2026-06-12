@@ -180,6 +180,31 @@ async function main() {
     .single();
   check("User A can create a merchant rule in their own family", !ruleErr);
 
+  // Phase 6: A creates a weekly summary.
+  const { data: summA, error: summErr } = await a
+    .from("weekly_summaries")
+    .insert({
+      family_id: famA.id,
+      period_start: "2026-06-05",
+      period_end: "2026-06-11",
+      summary_json: { test: true },
+      summary_text: "RLS test summary",
+    })
+    .select()
+    .single();
+  if (summErr) {
+    throw new Error(
+      `User A could not create a weekly summary (is the Phase 6 migration applied?): ${summErr.message}`,
+    );
+  }
+  check("User A can create a weekly summary in their own family", Boolean(summA));
+
+  const { data: aSummRead } = await a
+    .from("weekly_summaries")
+    .select("id")
+    .eq("id", summA.id);
+  check("User A can read their weekly summary", (aSummRead ?? []).length === 1);
+
   // --- User B: must not see or touch A's data ---
   const b = await signInClient(B);
 
@@ -363,6 +388,62 @@ async function main() {
     `B sees ${bRules?.length ?? 0} merchant rule row(s) total`,
   );
 
+  // weekly_summaries isolation (Phase 6)
+  const { data: bSumm } = await b
+    .from("weekly_summaries")
+    .select("id, family_id");
+  check(
+    "User B cannot see User A's weekly summaries",
+    !(bSumm ?? []).some((s) => s.family_id === famA.id),
+    `B sees ${bSumm?.length ?? 0} weekly summary row(s) total`,
+  );
+
+  const { data: bSummById } = await b
+    .from("weekly_summaries")
+    .select("*")
+    .eq("id", summA.id);
+  check(
+    "User B cannot fetch User A's weekly summary by id",
+    (bSummById ?? []).length === 0,
+  );
+
+  const { error: bSummInsErr } = await b
+    .from("weekly_summaries")
+    .insert({
+      family_id: famA.id,
+      period_start: "2026-06-05",
+      period_end: "2026-06-11",
+      summary_json: { x: 1 },
+      summary_text: "intruder",
+    })
+    .select()
+    .single();
+  check(
+    "User B cannot insert a weekly summary for User A's family",
+    Boolean(bSummInsErr),
+    bSummInsErr ? "rejected by RLS" : "INSERT unexpectedly succeeded",
+  );
+
+  const { data: bSummUpd } = await b
+    .from("weekly_summaries")
+    .update({ summary_text: "hacked" })
+    .eq("id", summA.id)
+    .select();
+  check(
+    "User B cannot update User A's weekly summary",
+    (bSummUpd ?? []).length === 0,
+  );
+
+  const { data: bSummDel } = await b
+    .from("weekly_summaries")
+    .delete()
+    .eq("id", summA.id)
+    .select();
+  check(
+    "User B cannot delete User A's weekly summary",
+    (bSummDel ?? []).length === 0,
+  );
+
   // --- User A: still intact ---
   const { data: aFam } = await a.from("families").select("*").eq("id", famA.id);
   check("User A can still read their own family", (aFam ?? []).length === 1);
@@ -377,6 +458,14 @@ async function main() {
   check(
     "User A's transaction is unchanged after B's attempts",
     (aTxn ?? [])[0]?.merchant === "RLS Test Merchant",
+  );
+  const { data: aSumm } = await a
+    .from("weekly_summaries")
+    .select("summary_text")
+    .eq("id", summA.id);
+  check(
+    "User A's weekly summary is unchanged after B's attempts",
+    (aSumm ?? [])[0]?.summary_text === "RLS test summary",
   );
 
   // --- Cleanup the throwaway family (cascades to the child) ---

@@ -198,24 +198,37 @@ only from the authenticated user's own data; **Phase 5 tests pass**. ✅
 
 ---
 
-## Phase 6 — Weekly summary preview  (est. 1 day)
-- [ ] Weekly summary generator (last 7 days): total kid-related, top
-      platforms/categories, review-needed count → `weekly_summaries` row
-- [ ] `/summary` preview page
-- [ ] `MailProvider` interface; email send **mocked** unless provider env configured
-- [ ] States: no kid-related spend; review prompt when items need review
+## Phase 6 — Weekly summary preview  (est. 1 day)  ✅
+- [x] SQL migration `0004_phase6_weekly_summaries.sql`: `weekly_summaries` + RLS
+      (unique `family_id,period_start,period_end` so regenerate upserts)
+- [x] Pure generator (`src/lib/weekly-summary.ts`): `generateWeeklySummary`,
+      `summarizeLastSevenDays`, `getWeeklyDateRange`, `getWeeklySummaryState`,
+      `buildWeeklySummarySections`, `formatWeeklySummaryText` (reuses analytics)
+- [x] States handled: no transactions / none classified / no kid spend / needs review
+      / low-confidence / refunds (netted) / children-but-no-assignments / no children
+- [x] `/summary` page (period, cards, plain-English text, top categories/platforms,
+      child breakdown, needs-review section, back-to-dashboard, Regenerate, mock email button)
+- [x] `MailProvider` interface + `MockMailProvider` (`src/lib/mail/*`); `isEmailEnabled`;
+      **no real send** — default `MAIL_PROVIDER=mock`
+- [x] Data layer (`src/lib/data/weekly-summaries.ts`): create/getLatest/list/updateStatus
+- [x] `POST /api/summary/weekly/preview` + `GET /api/summary/weekly/latest` (auth, own family)
+- [x] Conservative language ("likely"/"unclear"/"needs review"/"possible"; no "fraud"/"unauthorized")
 
-**Tests**
-- [ ] Unit: weekly summary generator (7-day window; totals; top platforms/categories;
-      review-needed count)
-- [ ] Unit: empty/"no kid-related spend" + review-prompt states
-- [ ] Component: summary preview page
-- [ ] Integration: `MailProvider` mock — email is NOT sent when no provider configured
-- [ ] Manual: `/summary` reflects the last 7 days of transactions
+**Tests** ✅
+- [x] Unit: generator (7-day window, totals, top categories/platforms, JSON shape, text);
+      states (no transactions / none classified / no kid spend / needs-review prompt);
+      refund netting; child breakdown; date range; mail provider mock + `isEmailEnabled`
+- [x] Component: summary view (period/text, cards/sections, needs-review, child breakdown,
+      empty state, regenerate + disabled mock email button)
+- [x] API route: unauthenticated 401; creates preview from own family; no-transactions →
+      safe empty summary; never sends email
+- [x] Data layer: `createWeeklySummaryPreview` upsert + `getLatestWeeklySummary`
+- [x] RLS verification extended for `weekly_summaries` (now **36 checks**)
+- [x] **22 new tests; full suite 208 passing; `npm run build` passes; mock works with no keys**
 
 **Done when:** parent can view a weekly summary preview that reflects recent
 transactions; email is cleanly mocked when no provider is configured; **Phase 6
-tests pass**.
+tests pass**. ✅
 
 ---
 

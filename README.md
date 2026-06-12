@@ -56,7 +56,7 @@ Fill in `.env.local`:
 | `AI_MODEL` | no | optional model override (defaults per provider) |
 | `ANTHROPIC_API_KEY` | only if `anthropic` | console.anthropic.com (**server-only**) |
 | `OPENAI_API_KEY` | only if `openai` | platform.openai.com (**server-only**) |
-| `EMAIL_PROVIDER` + key | no | leave blank to mock weekly-summary email |
+| `MAIL_PROVIDER` (+ `RESEND_API_KEY`, `SUMMARY_EMAIL_FROM`) | no | `mock` default; MVP never sends real email |
 | `STRIPE_*` | no | leave blank — MVP uses a static pricing page |
 | `NEXT_PUBLIC_APP_URL` | yes | `http://localhost:3000` for local |
 
@@ -75,6 +75,8 @@ Fill in `.env.local`:
      chained through `families.owner_user_id = auth.uid()`.
    - `0003_phase4_classification.sql` — `transaction_classifications` and
      `merchant_rules`, with RLS chained through the owning family.
+   - `0004_phase6_weekly_summaries.sql` — `weekly_summaries` (one preview per
+     family + period), with RLS chained through the owning family.
 3. Confirm **Row Level Security is enabled** on every table (the migration enables
    it; verify under Authentication → Policies).
 4. Email/password auth is enabled by default in Supabase Auth. For the smoothest
@@ -137,8 +139,9 @@ guardrails, merchant-rule matching, provider selection, timeout/error/invalid-JS
 fallback, batch summary, mock mode), the classify/correction API routes (auth +
 ownership + batch resilience), the **analytics layer** (date-range/filter/sort,
 category/platform/child/kid-likelihood grouping, needs-review counts, review queue,
-dashboard summary, query parsing), and the transaction/review/dashboard UI —
-186 tests. No test calls a real AI API.
+dashboard summary, query parsing), the **weekly-summary generator** (states, date
+range, text, JSON shape, refunds) + mock mail provider, and the transaction / review
+/ dashboard / summary UI — 208 tests. No test calls a real AI API or sends email.
 
 **Priority targets as features land:** CSV parsing, column mapping, transaction
 validation, duplicate detection, AI JSON-schema validation, confidence-score
@@ -191,9 +194,20 @@ route behavior.
     platform / child / kid-related likelihood, and recent needs-review + classified
     lists. The same numbers are available at `GET /api/dashboard/summary?range=…`
     (auth required; your family only).
+12. **Weekly summary** — `/summary` shows a last-7-days preview in plain English:
+    the period, summary cards, top categories/platforms, a child breakdown (if any),
+    and a needs-review section. It handles every state conservatively (no
+    transactions / none classified / no likely kid spend / needs review).
+    **Regenerate preview** saves a snapshot (`weekly_summaries`). Email is **mocked**:
+    the button shows "Email sending not enabled" unless a mail provider is configured —
+    no email is ever sent in the MVP.
 
-> Phase 5 adds the analytics dashboard (date-range filtering, spend breakdowns) and
-> the review queue + filters. The weekly summary and pricing pages come next.
+> **Mail is mock-safe.** `MAIL_PROVIDER` defaults to `mock` (no key, no send). Set
+> `MAIL_PROVIDER=resend` + `RESEND_API_KEY` to *label* email as enabled; the MVP
+> still never sends. Real scheduled email is a later phase.
+
+> Phase 6 adds the weekly summary preview. The static pricing page + final polish
+> come next.
 
 ---
 
@@ -207,11 +221,11 @@ Level Security stops one user from seeing another user's data.**
 1. **Create/open a project** at [supabase.com](https://supabase.com) → *New project*
    (free tier is fine). Wait for it to finish provisioning.
 2. **Run the migrations in order** in *SQL Editor* → *New query*: paste/Run
-   `0001_phase2_family_schema.sql`, then `0002_phase3_transactions.sql`, then
-   `0003_phase4_classification.sql`. All are idempotent. Expect "Success" each time.
+   `0001` → `0002` → `0003` → `0004_phase6_weekly_summaries.sql`. All are
+   idempotent. Expect "Success" each time.
 3. **Confirm RLS is on.** *Authentication → Policies* should list policies for
    `profiles`, `families`, `children`, `transactions`, `csv_imports`,
-   `transaction_classifications`, and `merchant_rules`.
+   `transaction_classifications`, `merchant_rules`, and `weekly_summaries`.
 4. **Grab your keys.** *Project Settings → API*: copy the **Project URL**, the
    **anon public** key, and the **service_role** key.
 5. **Create `.env.local`** in the repo root:
@@ -233,12 +247,12 @@ Level Security stops one user from seeing another user's data.**
 npm run verify:rls
 ```
 This signs in two separate users, has User A create a throwaway family, child,
-transaction, CSV import, classification, and merchant rule, then asserts User B
-**cannot** read, fetch-by-id, insert into, update, or delete any of A's rows across
-all of those tables — and that A's data is untouched. It cleans up the throwaway
-family afterward (cascading to its rows). Expect:
+transaction, CSV import, classification, merchant rule, and weekly summary, then
+asserts User B **cannot** read, fetch-by-id, insert into, update, or delete any of
+A's rows across all of those tables — and that A's data is untouched. It cleans up
+the throwaway family afterward (cascading to its rows). Expect:
 ```
-✓ RLS verification PASSED: all 28 checks. Test family cleaned up.
+✓ RLS verification PASSED: all 36 checks. Test family cleaned up.
 ```
 (If `SUPABASE_SERVICE_ROLE_KEY` is set it creates pre-confirmed test users; otherwise
 disable "Confirm email" first so signups return a session.)
