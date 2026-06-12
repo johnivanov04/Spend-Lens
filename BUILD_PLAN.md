@@ -668,12 +668,18 @@ app stays usable while classification pending.
 - **Migration `0005_phase7_pdf_upload_source.sql`** only widens the
   `transactions.source_type` check to include `pdf_upload`. No new table, no RLS
   change, `verify:rls` unchanged (36 checks).
-- **Parsing is generic + pure** (`src/lib/transactions/pdf.ts`): detect lines that
-  start with a date and end with an amount, skip metadata (balance/account/page/etc.),
-  parse date (ISO / MM-DD-YYYY / MM-DD with an inferred year) + amount (leading/trailing
-  minus, `$`, commas). Ambiguous rows are marked invalid, never silently imported. The
-  output is the **shared `CsvPreview` shape**, so `CsvPreviewTable` + duplicate detection
-  + the import summary are all reused.
+- **Extraction is coordinate-aware** (`pdf-extract.ts`): bank statements are column
+  tables, so flat text collapses every row onto one line and loses the debit/credit
+  column. We rebuild physical lines by grouping pdf.js text items by their Y position —
+  one clean line per transaction (verified against real Wells Fargo + Capital One PDFs).
+- **Parsing is generic + pure** (`src/lib/transactions/pdf.ts`): detect lines that start
+  with a date and contain an amount, skip metadata (balance/account/statement/etc.), parse
+  the date (ISO / M-D[/YY] / "MMM DD" with an inferred year), an optional second "post
+  date" (credit cards), and the amount — ignoring a trailing running-balance column. Sign
+  is inferred from a leading `- $`/trailing minus or deposit keywords (purchases positive,
+  payments/deposits negative). Ambiguous rows are marked invalid, never silently imported.
+  Output is the **shared `CsvPreview` shape**, so `CsvPreviewTable` + duplicate detection +
+  the import summary are all reused.
 - **Privacy/data handling:** extraction (`unpdf`) runs **server-side, in-memory** in
   `POST /api/transactions/parse-pdf` — the PDF is never stored, never sent to an external
   service, and **no AI** is used. Only date / merchant-description / amount / source are

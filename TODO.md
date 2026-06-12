@@ -270,9 +270,13 @@ passes**. ✅
 - [x] Pure parser `src/lib/transactions/pdf.ts` (`parsePdfStatementText`,
       `detectPdfTransactionRows`, `validatePdfTransactionRow`,
       `convertPdfRowsToTransactionPreview`, `identifyLikelyPdfStatementFormat`,
-      `inferStatementYear`) — generic heuristics, no bank-specific code, no AI
-- [x] Server-only text extraction `src/lib/transactions/pdf-extract.ts` (`unpdf`,
-      in-memory, never stored, never external); `POST /api/transactions/parse-pdf`
+      `inferStatementYear`) — generic heuristics, no bank-specific code, no AI;
+      handles M/D + ISO + "MMM DD" dates, two-date credit-card rows, a trailing
+      running-balance column, and debit/credit sign inference
+- [x] **Coordinate-aware extraction** `src/lib/transactions/pdf-extract.ts` (`unpdf` +
+      pdf.js Y-grouping to rebuild rows — flat text collapses bank tables to one line);
+      server-only, in-memory, never stored/external; **verified on real Wells Fargo +
+      Capital One statements** (28 & 57 rows, 0 invalid); `POST /api/transactions/parse-pdf`
 - [x] `pdf_upload` reuses the import pipeline: generalized `importTransactions`
       (+ `importCsvTransactions`/`importPdfTransactions` wrappers), shared duplicate
       detection, shared `CsvPreviewTable`, shared import summary
@@ -284,8 +288,9 @@ passes**. ✅
       PDF, no account numbers, no balances
 - [x] Tests: PDF row detection, date/amount parsing, metadata filtering, scanned/empty
       handling, invalid rows, dup reuse, `source_type=pdf_upload`; PdfUploader +
-      UploadTabs components; parse-pdf route (mocked extraction). **20 new tests;
-      full suite 238 passing; `npm run build` passes; `unpdf` loads in Node**
+      UploadTabs components; parse-pdf route (mocked extraction) + real Wells Fargo /
+      Capital One layout parsing. **24 PDF-area tests; full suite 242 passing;
+      `npm run build` passes; `unpdf` loads in Node**
 
 ---
 

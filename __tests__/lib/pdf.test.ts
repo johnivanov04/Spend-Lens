@@ -119,3 +119,57 @@ describe("convertPdfRowsToTransactionPreview", () => {
     expect(preview.invalidCount).toBe(1);
   });
 });
+
+describe("real statement formats (reconstructed lines)", () => {
+  it("parses Wells Fargo checking rows (M/D) and ignores the running balance", () => {
+    const r = validatePdfTransactionRow(
+      "4/27 Purchase authorized on 04/25 Spotify USA NEW York NY 12.99 1,049.34",
+      2026,
+    );
+    expect(r.valid).toBe(true);
+    expect(r.draft?.amount).toBe(12.99); // the 1,049.34 is the balance, ignored
+    expect(r.draft?.transaction_date).toBe("2026-04-27");
+    expect(r.draft?.description).toMatch(/Spotify/);
+  });
+
+  it("treats Wells Fargo deposits (transfer/zelle from, cashout) as negative", () => {
+    expect(
+      validatePdfTransactionRow(
+        "5/4 Online Transfer From Ivanov D Premier Checking xxxxxx3362 1,000.00",
+        2026,
+      ).draft?.amount,
+    ).toBe(-1000);
+    expect(
+      validatePdfTransactionRow(
+        "5/18 Venmo Cashout 260516 1050327716185 John Ivanov 124.10",
+        2026,
+      ).draft?.amount,
+    ).toBe(-124.1);
+  });
+
+  it("parses Capital One credit-card rows (two MMM DD dates) with the - $ sign", () => {
+    const purchase = validatePdfTransactionRow(
+      "Apr 17 Apr 20 SHELL OIL 10007927006GLENDALECA $5.99",
+      2026,
+    );
+    expect(purchase.draft?.amount).toBe(5.99);
+    expect(purchase.draft?.transaction_date).toBe("2026-04-17");
+    expect(purchase.draft?.description).toMatch(/SHELL OIL/);
+
+    const payment = validatePdfTransactionRow(
+      "Apr 27 Apr 27 CAPITAL ONE ONLINE PYMT - $611.81",
+      2026,
+    );
+    expect(payment.draft?.amount).toBe(-611.81);
+  });
+
+  it("excludes statement headers and balance lines that start with a date", () => {
+    const rows = detectPdfTransactionRows([
+      "Apr 18, 2026 - May 18, 2026 | 31 days in Billing Cycle",
+      "May 26, 2026 Page 1 of 5",
+      "Beginning balance on 4/24 $1,112.32",
+      "Apr 27 Apr 27 SHELL OIL CA $5.99",
+    ]);
+    expect(rows).toEqual(["Apr 27 Apr 27 SHELL OIL CA $5.99"]);
+  });
+});

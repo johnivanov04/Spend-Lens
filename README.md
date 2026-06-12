@@ -338,9 +338,12 @@ Other current limitations:
 - **Analytics run in memory** per request rather than as SQL aggregates.
 - **Date parsing** handles ISO + US slash formats; other locale formats are flagged
   invalid in CSV/PDF preview for you to fix.
-- **PDF import is text-only** — scanned/image PDFs aren't supported (no OCR), the raw
-  PDF is never stored, parsing is generic heuristics (no bank login, no AI, no external
-  upload), and unusual statement layouts may need a CSV export instead.
+- **PDF import is text-only** — scanned/image PDFs aren't supported (no OCR). The raw PDF
+  is never stored. Extraction is coordinate-aware (it rebuilds the statement's rows) and
+  parsing uses generic heuristics — verified on real Wells Fargo (checking) and Capital One
+  (credit card) statements. Debit/credit sign is inferred (purchases positive, payments/
+  deposits negative), so review the preview; unusual layouts may still need a CSV export.
+  No bank login, no AI, no external upload.
 - **Pricing/billing are static** — no checkout; Spend Lens is in free beta.
 
 ---
