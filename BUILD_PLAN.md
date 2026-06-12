@@ -590,3 +590,30 @@ app stays usable while classification pending.
   validation, fallback, timeout, and batch logic are all tested with injected
   providers/mocks. Default models: anthropic `claude-haiku-4-5`, openai `gpt-4o-mini`.
 - **RLS verification extended** to classifications + merchant_rules (now 28 checks).
+
+### Phase 5 implementation notes (as built)
+- **No migration, no RLS changes.** All analytics are derived from the existing
+  tables (`transactions` + embedded `transaction_classifications`, plus `children`/
+  `merchant_rules`), so no new policies or `verify-rls.mjs` changes were needed.
+- **Pure analytics layer** (`src/lib/analytics.ts`): all aggregation, date-range
+  filtering, transaction filtering/sorting, review-queue selection, query parsing,
+  and facet extraction are pure functions over `TransactionWithClassification[]` —
+  fully unit-tested without Supabase. The dashboard page and `/api/dashboard/summary`
+  both fetch the family's rows once (RLS-scoped) and run these.
+- **Filters/sort live in the URL.** `TransactionFilters` (client) edits query params;
+  server pages parse them with `parseTransactionQuery` and apply the pure functions.
+  This keeps the logic server-side, testable, and shareable across `/transactions`
+  and `/transactions/review`.
+- **Charts are dependency-free CSS bars** (`SpendBarChart`) rather than Recharts —
+  lighter and easier to test; correctness/clarity over styling per the brief.
+- **`GET /api/dashboard/summary`** is added for API access/tests, but the dashboard
+  page computes the summary directly server-side (no self-fetch). Both require auth
+  and read only the user's own family (RLS); no service-role key is used.
+- **Refinement of §6:** the doc's `GET /api/dashboard/summary` with `start_date/
+  end_date/...` is implemented as a `range` param (7d/30d/90d/all); finer-grained
+  filtering is done on the `/transactions` + `/transactions/review` pages.
+- **Correction workflow** (from Phase 4) extended to edit merchant family, a note,
+  and a "keep flagged for review" toggle; corrections remain browser-client + RLS
+  (no AI), mark the row **Parent verified**, and can still create a merchant rule.
+- **Conservative language** throughout ("likely" / "unclear" / "needs review"); the
+  UI never says "fraud" or "unauthorized".

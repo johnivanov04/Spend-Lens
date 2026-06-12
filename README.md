@@ -135,8 +135,10 @@ transactions data layers, CSV parsing/mapping/validation/dedup, receipt extracti
 the **AI classifier** (schema validation, confidence/needs-review logic, child
 guardrails, merchant-rule matching, provider selection, timeout/error/invalid-JSON
 fallback, batch summary, mock mode), the classify/correction API routes (auth +
-ownership + batch resilience), and the transaction/classification/dashboard UI —
-156 tests. No test calls a real AI API.
+ownership + batch resilience), the **analytics layer** (date-range/filter/sort,
+category/platform/child/kid-likelihood grouping, needs-review counts, review queue,
+dashboard summary, query parsing), and the transaction/review/dashboard UI —
+186 tests. No test calls a real AI API.
 
 **Priority targets as features land:** CSV parsing, column mapping, transaction
 validation, duplicate detection, AI JSON-schema validation, confidence-score
@@ -166,23 +168,32 @@ route behavior.
 6. **CSV upload** — `/transactions/upload` a small CSV (≤2 MB, ≤500 rows). Columns
    auto-map (or use the column mapper); preview shows valid / invalid (with reasons)
    / duplicate rows; **Import** saves valid, non-duplicate rows and shows a summary.
-7. **Transactions list** — `/transactions` shows everything you've added. Each
-   unclassified row has a **Classify** button; the header has **Classify all
-   unclassified**. After classifying, rows show category, platform, a confidence
-   label, and a status badge (Classified / Needs review / Parent verified).
-8. **Classify** — click **Classify** on a row (or **Classify all unclassified**).
-   In mock mode this needs no API key. Low-confidence or unclear charges are marked
-   **Needs review** and never get a child assigned without evidence.
-9. **Review & correct** — open **Details** on a classified row to read the
-   plain-English explanation and correct the platform / category / kid-related
-   status / child. Your correction overrides the AI; tick "Remember this for
-   similar charges" to save a merchant rule that pre-fills future matches.
-10. **Dashboard** — `/dashboard` shows saved / classified / needs-review counts, a
-    simple by-category summary, and recent transactions. (Full spend analytics come
-    in Phase 5.)
+7. **Transactions list** — `/transactions` shows everything you've added with a
+   **filter bar**: search merchant/description, filter by status / category /
+   platform / child / confidence / source, and sort by date / amount / confidence /
+   recently-added. Each unclassified row has a **Classify** button; the header has
+   **Classify all unclassified**.
+8. **Classify** — click **Classify** (or **Classify all unclassified**). Mock mode
+   needs no API key. Low-confidence or unclear charges are marked **Needs review**
+   and never get a child assigned without evidence.
+9. **Review queue** — `/transactions/review` (also linked from the nav and the
+   dashboard "Needs review" card) lists only transactions that are unclassified,
+   low-confidence, unclear, or flagged — with the same filters/search. "You're all
+   caught up" shows when the queue is empty.
+10. **Review & correct** — open **Details** on a row to read the plain-English
+    explanation and correct platform / merchant family / category / kid-related
+    status / child, add a note, or keep it flagged for review. Your correction
+    overrides the AI (marks it **Parent verified**); tick "Remember this for similar
+    charges" to save a merchant rule that pre-fills future matches.
+11. **Dashboard** — `/dashboard` shows a **date-range filter** (7/30/90 days, all
+    time) and parent-facing summaries: transaction / classified / needs-review
+    counts, **likely** and **unclear** kid-related spend, spend bars by category /
+    platform / child / kid-related likelihood, and recent needs-review + classified
+    lists. The same numbers are available at `GET /api/dashboard/summary?range=…`
+    (auth required; your family only).
 
-> Phase 4 adds AI classification + a light correction workflow. The weekly summary
-> and pricing pages come in later phases.
+> Phase 5 adds the analytics dashboard (date-range filtering, spend breakdowns) and
+> the review queue + filters. The weekly summary and pricing pages come next.
 
 ---
 

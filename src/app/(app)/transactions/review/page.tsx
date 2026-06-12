@@ -3,50 +3,41 @@ import { listChildren } from "@/lib/data/family";
 import { listTransactionsWithClassification } from "@/lib/data/classifications";
 import {
   facetsFromRows,
-  filterByDateRange,
   filterTransactions,
+  getReviewQueue,
   parseTransactionQuery,
   sortTransactions,
 } from "@/lib/analytics";
-import {
-  TransactionListActions,
-  TransactionsTable,
-} from "@/components/transactions/transaction-table";
+import { TransactionsTable } from "@/components/transactions/transaction-table";
 import { TransactionFilters as FiltersBar } from "@/components/transactions/transaction-filters";
-import { ClassifyAllButton } from "@/components/transactions/classify-all-button";
 
-export default async function TransactionsPage({
+export default async function ReviewQueuePage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const { supabase, family } = await requireFamilyContext();
   const sp = await searchParams;
-  const { range, filters, sort, dir } = parseTransactionQuery(sp);
+  const { filters, sort, dir } = parseTransactionQuery(sp);
 
   const [allRows, children] = await Promise.all([
     listTransactionsWithClassification(supabase, family.id),
     listChildren(supabase, family.id),
   ]);
 
-  const inRange = filterByDateRange(allRows, range);
-  const visible = sortTransactions(filterTransactions(inRange, filters), sort, dir);
+  const queue = getReviewQueue(allRows);
+  const visible = sortTransactions(filterTransactions(queue, filters), sort, dir);
   const facets = facetsFromRows(allRows);
-  const hasUnclassified = allRows.some((r) => !r.classification);
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Transactions</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Search, filter, classify, and correct your charges.
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          {hasUnclassified && <ClassifyAllButton />}
-          <TransactionListActions />
-        </div>
+      <div>
+        <h1 className="text-2xl font-semibold text-slate-900">Review queue</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Transactions that are unclassified, low-confidence, unclear, or flagged
+          for review. Open <span className="font-medium">Details</span> to correct
+          one.
+        </p>
       </div>
 
       <FiltersBar
@@ -72,14 +63,10 @@ export default async function TransactionsPage({
         rows={visible}
         familyId={family.id}
         children={children.map((c) => ({ id: c.id, name: c.name }))}
-        emptyTitle={
-          allRows.length === 0 ? "No transactions yet" : "No matching transactions"
-        }
-        emptyDescription={
-          allRows.length === 0
-            ? "Add a transaction manually, paste a receipt, or upload a CSV to get started."
-            : "Try clearing or changing your filters."
-        }
+        emptyTitle="You're all caught up"
+        emptyDescription="Nothing needs review right now."
+        emptyActionLabel="View all transactions"
+        emptyActionHref="/transactions"
       />
     </div>
   );

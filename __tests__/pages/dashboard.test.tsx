@@ -1,61 +1,56 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
-import type { TransactionWithClassification } from "@/lib/data/classifications";
+import type { DashboardSummary } from "@/lib/analytics";
 
-function row(id: string): TransactionWithClassification {
+function summary(over: Partial<DashboardSummary> = {}): DashboardSummary {
   return {
-    id,
-    family_id: "fam1",
-    source_type: "manual",
-    merchant: "ROBLOX.COM",
-    description: null,
-    amount: 49.99,
-    currency: "USD",
-    transaction_date: "2026-06-11",
-    raw_text: null,
-    source_file_name: null,
-    duplicate_key: null,
-    created_at: "2026-06-11T00:00:00Z",
-    updated_at: "2026-06-11T00:00:00Z",
-    classification: null,
+    totalTransactions: 5,
+    classifiedCount: 4,
+    needsReviewCount: 2,
+    likelyKidSpend: 79.98,
+    unclearKidSpend: 9.99,
+    byCategory: [{ key: "Games", amount: 79.98, count: 2 }],
+    byPlatform: [{ key: "Roblox", amount: 79.98, count: 2 }],
+    byChild: [],
+    byKidLikelihood: { yes: 79.98, no: 0, unclear: 9.99 },
+    recentNeedsReview: [],
+    recentClassified: [],
+    ...over,
   };
 }
 
 describe("DashboardView", () => {
-  it("shows the empty state when there are no transactions", () => {
+  it("shows the empty state when there are no transactions in range", () => {
     render(
       <DashboardView
-        transactionCount={0}
-        classifiedCount={0}
-        needsReviewCount={0}
-        recent={[]}
-        categorySummary={[]}
+        summary={summary({ totalTransactions: 0, classifiedCount: 0 })}
+        range="30d"
+        hasChildren={false}
       />,
     );
-    expect(screen.getByText("No transactions yet")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Add transactions" }),
-    ).toHaveAttribute("href", "/transactions/new");
+    expect(screen.getByText("No transactions in this range")).toBeInTheDocument();
   });
 
-  it("shows classification counts, category summary, and recent items", () => {
-    render(
-      <DashboardView
-        transactionCount={5}
-        classifiedCount={4}
-        needsReviewCount={2}
-        recent={[row("t1")]}
-        categorySummary={[{ category: "Games", count: 3 }]}
-      />,
-    );
-    expect(screen.getByText("Saved transactions")).toBeInTheDocument();
-    expect(screen.getByText("5")).toBeInTheDocument();
-    expect(screen.getByText("Classified")).toBeInTheDocument();
-    expect(screen.getByText("Needs review")).toBeInTheDocument();
-    expect(screen.getByText("Games · 3")).toBeInTheDocument();
+  it("renders summary cards, breakdowns, and the date range filter", () => {
+    render(<DashboardView summary={summary()} range="30d" hasChildren={false} />);
+    expect(screen.getByText("Transactions")).toBeInTheDocument();
+    expect(screen.getByText("Likely kid-related spend")).toBeInTheDocument();
+    expect(screen.getByText("Unclear kid-related spend")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Recent transactions" }),
+      screen.getByRole("heading", { name: "Spend by category" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Spend by platform" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Date range" })).toBeInTheDocument();
+  });
+
+  it("links the needs-review card to the review queue", () => {
+    render(<DashboardView summary={summary()} range="30d" hasChildren={false} />);
+    expect(screen.getByRole("link", { name: /Needs review/ })).toHaveAttribute(
+      "href",
+      "/transactions/review",
+    );
   });
 });

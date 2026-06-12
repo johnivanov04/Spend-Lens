@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Button, Field, Input, Label, Select } from "@/components/ui";
+import { Alert, Button, Field, Input, Label, Select, Textarea } from "@/components/ui";
 import {
   createMerchantRuleClient,
   saveCorrectionClient,
@@ -29,11 +29,20 @@ export function CorrectionForm({
 }) {
   const router = useRouter();
   const [platform, setPlatform] = useState(classification?.platform ?? "");
+  const [merchantFamily, setMerchantFamily] = useState(
+    classification?.merchant_family ?? "",
+  );
   const [category, setCategory] = useState(classification?.category ?? "");
   const [kidRelated, setKidRelated] = useState<KidRelatedLikelihood>(
     classification?.kid_related_likelihood ?? "unclear",
   );
   const [childId, setChildId] = useState(classification?.child_id ?? "");
+  const [note, setNote] = useState(
+    classification?.model_provider === "parent_correction"
+      ? (classification?.explanation ?? "")
+      : "",
+  );
+  const [stillNeedsReview, setStillNeedsReview] = useState(false);
   const [remember, setRemember] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
@@ -47,9 +56,12 @@ export function CorrectionForm({
         transaction_id: transactionId,
         family_id: familyId,
         platform: platform.trim() || null,
+        merchant_family: merchantFamily.trim() || null,
         category: category.trim() || null,
         kid_related_likelihood: kidRelated,
         child_id: childId || null,
+        explanation: note.trim() || null,
+        needs_review: stillNeedsReview,
       });
       if (remember) {
         await createMerchantRuleClient(familyId, {
@@ -80,6 +92,14 @@ export function CorrectionForm({
             value={platform}
             onChange={(e) => setPlatform(e.target.value)}
             placeholder="e.g. Roblox"
+          />
+        </Field>
+        <Field label="Merchant family" htmlFor={`merchant-family-${transactionId}`}>
+          <Input
+            id={`merchant-family-${transactionId}`}
+            value={merchantFamily}
+            onChange={(e) => setMerchantFamily(e.target.value)}
+            placeholder="e.g. Roblox Corporation"
           />
         </Field>
         <Field label="Category" htmlFor={`category-${transactionId}`}>
@@ -121,6 +141,16 @@ export function CorrectionForm({
         </div>
       </div>
 
+      <Field label="Note (optional)" htmlFor={`note-${transactionId}`}>
+        <Textarea
+          id={`note-${transactionId}`}
+          rows={2}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="A plain-English note about this charge."
+        />
+      </Field>
+
       <label className="flex items-center gap-2 text-sm text-slate-600">
         <input
           type="checkbox"
@@ -128,6 +158,14 @@ export function CorrectionForm({
           onChange={(e) => setRemember(e.target.checked)}
         />
         Remember this for similar charges
+      </label>
+      <label className="flex items-center gap-2 text-sm text-slate-600">
+        <input
+          type="checkbox"
+          checked={stillNeedsReview}
+          onChange={(e) => setStillNeedsReview(e.target.checked)}
+        />
+        Keep this flagged for review
       </label>
 
       <div className="flex gap-2">

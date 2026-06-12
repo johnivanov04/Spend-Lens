@@ -165,39 +165,36 @@ app; **Phase 4 tests pass**. ✅
 
 ---
 
-## Phase 5 — Dashboard & corrections  (est. 2 days)
-- [ ] `GET /api/dashboard/summary` (totals + by platform/category/child + needs-review;
-      filters: start_date, end_date, platform, category, child_id)
-- [ ] `DashboardSummaryCards`: total kid-related spend, needs-review, top platform,
-      last import/upload
-- [ ] Charts: `PlatformSpendChart`, `CategorySpendChart`, `ChildSpendChart`
-      (child chart only when children exist)
-- [ ] Recent transactions + needs-review tables; clicking a card filters the table
-- [ ] `/transactions`: full `TransactionTable` (Date, Merchant, Amount, Platform,
-      Category, Child, Confidence, Status, Actions)
-- [ ] Search + filters (platform / category / child / status)
-- [ ] `ConfidenceBadge`, `KidRelatedBadge`, `ReviewStatusBadge` (no color-only signals)
-- [ ] `TransactionDetailDrawer`: raw txn, AI classification, explanation, evidence,
-      `CorrectionForm`, save button
-- [ ] `PATCH /api/transactions/:id/correction`: save correction, mark Parent Verified,
-      latest correction wins, recalc dashboard
-- [ ] Optionally create/update a `merchant_rule` from a correction
-- [ ] "Not kid-related" excluded from kid totals; parent-verified visually distinct
+## Phase 5 — Dashboard analytics & review workflow  (est. 2 days)  ✅
+- [x] **No new tables/RLS** — reused transactions/classifications/merchant_rules/children/families
+- [x] Pure analytics layer (`src/lib/analytics.ts`): `summarizeDashboard`, `filterTransactions`,
+      `sortTransactions`, `filterByDateRange`, `groupSpendBy{Category,Platform,Child,KidLikelihood}`,
+      `getReviewQueue`, `calculateNeedsReviewCounts`, `parseTransactionQuery`, `facetsFromRows`
+- [x] `/dashboard`: date-range filter (7/30/90/all), counts, likely + unclear kid spend,
+      spend bars by category/platform/child/kid-likelihood, recent needs-review + classified
+- [x] `GET /api/dashboard/summary` (auth, own family only, range filter)
+- [x] `SpendBarChart` (CSS bars — no chart dependency), `DateRangeFilter`
+- [x] `/transactions`: search + filters (status/category/platform/child/confidence/source) + sort
+- [x] `/transactions/review` review queue (unclassified / low / unclear / needs_review) + filters
+- [x] `TransactionFilters` bar syncing to URL query params; clear empty states
+- [x] Correction form extended: platform, **merchant family**, category, kid-related, child,
+      **note**, **keep-flagged-for-review**; overrides AI → Parent verified; optional merchant rule
+- [x] Conservative language ("likely" / "unclear" / "needs review"); no "fraud"/"unauthorized"
+- [x] `StatusBadge`/`ConfidenceBadge`/`KidRelatedBadge` (text, not color-only); Review nav link
 
-**Tests** (priority targets for this phase)
-- [ ] Unit: **dashboard aggregation logic** (totals; by platform/category/child;
-      needs-review count; excludes "not kid-related"; nets refunds/negatives)
-- [ ] Unit: **parent-correction override logic** (latest correction wins; marks
-      Parent Verified; totals recalculate)
-- [ ] Component: TransactionTable, filters/search, TransactionDetailDrawer,
-      CorrectionForm, Confidence/KidRelated/ReviewStatus badges
-- [ ] Integration: correction PATCH → updated summary via mocked Supabase
-- [ ] Manual: correct a Roblox txn → Parent Verified + dashboard totals update
+**Tests** ✅ (priority targets covered)
+- [x] Unit: dashboard aggregation; date-range filtering; category/platform/child/kid-likelihood
+      grouping; needs-review counts; transaction filtering + sorting; review-queue selection;
+      query parsing; facets
+- [x] Unit: parent-correction override (merchant_family/note/needs_review) via `saveCorrection`
+- [x] Component: dashboard cards + breakdowns, date filter, spend bar chart, filters bar,
+      review queue empty + filled, correction form improvements
+- [x] API route: unauthenticated rejected; summary scoped to own family; range filter affects summary
+- [x] **30 new tests; full suite 186 passing; `npm run build` passes**
 
-**Done when:** dashboard summaries are accurate and load <2 s for ~1,000 txns;
-parent corrections persist and update totals; corrected transactions are visibly
-marked Parent Verified; empty states guide the user to add transactions; **Phase 5
-tests pass**.
+**Done when:** dashboard summaries are accurate; parent corrections persist and mark Parent
+Verified; review queue + filters/search work; empty states are clear; dashboard numbers derive
+only from the authenticated user's own data; **Phase 5 tests pass**. ✅
 
 ---
 

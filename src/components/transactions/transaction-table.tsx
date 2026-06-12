@@ -16,20 +16,28 @@ export function TransactionsTable({
   rows,
   familyId,
   children,
+  emptyTitle = "No transactions yet",
+  emptyDescription = "Add a transaction manually, paste a receipt, or upload a CSV to get started.",
+  emptyActionLabel = "Add a transaction",
+  emptyActionHref = "/transactions/new",
 }: {
   rows: TransactionWithClassification[];
   familyId: string;
   children: ChildRef[];
+  emptyTitle?: string;
+  emptyDescription?: string;
+  emptyActionLabel?: string;
+  emptyActionHref?: string;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   if (rows.length === 0) {
     return (
       <EmptyState
-        title="No transactions yet"
-        description="Add a transaction manually, paste a receipt, or upload a CSV to get started."
-        actionLabel="Add a transaction"
-        actionHref="/transactions/new"
+        title={emptyTitle}
+        description={emptyDescription}
+        actionLabel={emptyActionLabel}
+        actionHref={emptyActionHref}
       />
     );
   }

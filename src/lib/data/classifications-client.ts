@@ -16,9 +16,12 @@ export function saveCorrectionClient(args: {
   transaction_id: string;
   family_id: string;
   platform: string | null;
+  merchant_family?: string | null;
   category: string | null;
   kid_related_likelihood: KidRelatedLikelihood;
   child_id: string | null;
+  explanation?: string | null;
+  needs_review?: boolean;
 }): Promise<ClassificationRow> {
   return saveCorrection(createClient(), args);
 }

@@ -206,21 +206,26 @@ export async function saveCorrection(
     transaction_id: string;
     family_id: string;
     platform: string | null;
+    merchant_family?: string | null;
     category: string | null;
     kid_related_likelihood: KidRelatedLikelihood;
     child_id: string | null;
+    explanation?: string | null;
+    needs_review?: boolean;
   },
 ): Promise<ClassificationRow> {
+  const needsReview = args.needs_review ?? false;
   const result: ClassificationResult = {
     platform: args.platform,
-    merchant_family: null,
+    merchant_family: args.merchant_family ?? null,
     category: args.category,
     kid_related_likelihood: args.kid_related_likelihood,
-    confidence_score: 1,
-    confidence_label: "high",
+    // Parent-set values are authoritative unless the parent left it "needs review".
+    confidence_score: needsReview ? 0.5 : 1,
+    confidence_label: needsReview ? "low" : "high",
     child_id: args.child_id,
-    explanation: "Set by you.",
-    needs_review: false,
+    explanation: args.explanation?.trim() || "Set by you.",
+    needs_review: needsReview,
     model_provider: "parent_correction",
     model_name: null,
     raw_model_output: null,
