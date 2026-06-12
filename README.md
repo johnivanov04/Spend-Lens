@@ -306,6 +306,74 @@ If every box checks out, data isolation is verified.
 
 ---
 
+## Deployment (Vercel + Supabase)
+
+Spend Lens deploys to **Vercel** (Next.js + serverless functions) with **Supabase**
+as the database/auth. The deployed app needs only the two public Supabase env vars;
+mock AI requires no key and no cost.
+
+### 1. Production prerequisites
+- A **Supabase project** exists (the same one you've been developing against is fine
+  for beta).
+- All migrations are applied **in order**: `0001` → `0002` → `0003` → `0004` →
+  `0005_phase7_pdf_upload_source.sql` (SQL editor → paste → Run; each is idempotent).
+- `npm run verify:rls` **passes** locally against that project (expect "all 36 checks").
+- The repo is **pushed to GitHub** (`johnivanov04/Spend-Lens`).
+
+### 2. Deploy on Vercel
+1. Go to **[vercel.com/new](https://vercel.com/new)** → **Import** the GitHub repo.
+2. **Framework preset: Next.js** (auto-detected) — leave build/output at the defaults.
+3. Before the first deploy, expand **Environment Variables** and add (Production):
+   | Key | Value |
+   |---|---|
+   | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → anon public key |
+   | `AI_PROVIDER` | `mock` |
+   - **Mock AI needs no API key.** (`AI_PROVIDER` even defaults to `mock` if unset.)
+   - **`SUPABASE_SERVICE_ROLE_KEY` is NOT needed by the deployed app** — it's only used
+     by the local `verify:rls` / `seed:demo` scripts. Don't add it to Vercel.
+   - Setting the `NEXT_PUBLIC_*` vars **before** the first build matters (they're inlined
+     at build time). If you add them later, redeploy.
+4. Click **Deploy** (~1–2 min). Vercel gives you a URL like `https://your-app.vercel.app`.
+   Every push to `main` then auto-deploys to production; PRs get preview deployments.
+
+### 3. Point Supabase Auth at the production URL
+After Vercel gives you the URL, in Supabase → **Authentication → URL Configuration**:
+- **Site URL**: `https://your-app.vercel.app`
+- **Redirect URLs**: add `https://your-app.vercel.app/**`
+
+This makes signup confirmation links and auth redirects work in production. You can
+**disable "Confirm email"** (Authentication → Providers → Email) for low-friction beta
+signups, or keep it on — in which case the redirect URL above is required so the emailed
+`/auth/confirm` link resolves.
+
+### 4. Post-deploy smoke test (on the live URL)
+- [ ] Sign up
+- [ ] Complete onboarding
+- [ ] Add a family and a kid
+- [ ] Add a manual transaction
+- [ ] Upload a CSV (`demo-data/sample-transactions.csv`)
+- [ ] Upload a PDF statement
+- [ ] **Classify all** (mock mode)
+- [ ] Correct one classification
+- [ ] Check the dashboard
+- [ ] Check the weekly summary
+- [ ] Check the pricing page
+
+### 5. Recommended beta defaults
+- `AI_PROVIDER=mock` (free, deterministic — no key, no cost)
+- `MAIL_PROVIDER=mock` (or unset) — **no real email is ever sent**
+- No Stripe / no checkout (pricing is static, free beta)
+
+### 6. Switching to real AI later
+- Add `ANTHROPIC_API_KEY` and set `AI_PROVIDER=anthropic` (default model
+  `claude-haiku-4-5`), **or** add `OPENAI_API_KEY` and set `AI_PROVIDER=openai`.
+- **Redeploy** after changing Vercel env vars (env changes apply on the next build).
+- If the selected provider's key is missing it falls back to mock, so nothing breaks.
+- Monitor cost and classification quality before expanding the beta.
+
+---
+
 ## End-to-end (Playwright)
 
 A small smoke test confirms the app boots and public pages render:
