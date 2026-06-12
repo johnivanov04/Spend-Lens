@@ -661,3 +661,26 @@ app stays usable while classification pending.
   separate from Vitest (`e2e/` testDir; excluded from the Next typecheck). The
   authenticated journey stays covered by the unit/component suite + manual demo flow —
   documented as an intentional choice to avoid a brittle, creds-dependent auth E2E.
+
+### Beta-readiness extension — PDF statement import (as built)
+- **Why:** many banks only offer PDF statements, not CSV. Added as a small, controlled
+  extension that **reuses the CSV import pipeline** rather than a new subsystem.
+- **Migration `0005_phase7_pdf_upload_source.sql`** only widens the
+  `transactions.source_type` check to include `pdf_upload`. No new table, no RLS
+  change, `verify:rls` unchanged (36 checks).
+- **Parsing is generic + pure** (`src/lib/transactions/pdf.ts`): detect lines that
+  start with a date and end with an amount, skip metadata (balance/account/page/etc.),
+  parse date (ISO / MM-DD-YYYY / MM-DD with an inferred year) + amount (leading/trailing
+  minus, `$`, commas). Ambiguous rows are marked invalid, never silently imported. The
+  output is the **shared `CsvPreview` shape**, so `CsvPreviewTable` + duplicate detection
+  + the import summary are all reused.
+- **Privacy/data handling:** extraction (`unpdf`) runs **server-side, in-memory** in
+  `POST /api/transactions/parse-pdf` — the PDF is never stored, never sent to an external
+  service, and **no AI** is used. Only date / merchant-description / amount / source are
+  saved; never balances or account numbers. Scanned/image-only PDFs (no extractable
+  text) return a clear "can't read it yet — try CSV" message (no OCR).
+- **Import reuse:** `importCsvTransactions` was generalized to `importTransactions(sourceType)`
+  with `importCsvTransactions` / `importPdfTransactions` wrappers; PDF rows import via the
+  browser client (RLS) exactly like CSV, with `source_type = 'pdf_upload'`.
+- **UI:** `/transactions/upload` now has CSV (preferred) / PDF tabs with explicit copy
+  that CSV is preferred and scanned PDFs aren't supported.

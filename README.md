@@ -77,6 +77,8 @@ Fill in `.env.local`:
      `merchant_rules`, with RLS chained through the owning family.
    - `0004_phase6_weekly_summaries.sql` — `weekly_summaries` (one preview per
      family + period), with RLS chained through the owning family.
+   - `0005_phase7_pdf_upload_source.sql` — allows the `pdf_upload` source type on
+     `transactions` (no new table, no RLS change).
 3. Confirm **Row Level Security is enabled** on every table (the migration enables
    it; verify under Authentication → Policies).
 4. Email/password auth is enabled by default in Supabase Auth. For the smoothest
@@ -150,8 +152,10 @@ category/platform/child/kid-likelihood grouping, needs-review counts, review que
 dashboard summary, query parsing), the **weekly-summary generator** (states, date
 range, text, JSON shape, refunds) + mock mail provider, and the transaction / review
 / dashboard / summary UI, plus the pricing/billing/empty/error states and demo-data
-helper — 218 unit/component tests + a Playwright public-pages smoke test. No test
-calls a real AI API or sends email.
+helper, and the **PDF statement parser** (row detection, date/amount parsing,
+metadata filtering, scanned-PDF handling) + parse-pdf route — 238 unit/component
+tests + a Playwright public-pages smoke test. No test calls a real AI API, sends
+email, or uploads a real PDF.
 
 **Priority targets as features land:** CSV parsing, column mapping, transaction
 validation, duplicate detection, AI JSON-schema validation, confidence-score
@@ -178,9 +182,13 @@ route behavior.
 5. **Receipt paste** — `/transactions/new` (Paste receipt tab) → paste receipt text
    → **Extract preview** pulls out merchant/amount/date (deterministic, no AI) →
    edit if needed → Save. (Real AI extraction/classification is Phase 4.)
-6. **CSV upload** — `/transactions/upload` a small CSV (≤2 MB, ≤500 rows). Columns
-   auto-map (or use the column mapper); preview shows valid / invalid (with reasons)
-   / duplicate rows; **Import** saves valid, non-duplicate rows and shows a summary.
+6. **Statement upload** — `/transactions/upload` has two tabs:
+   - **CSV (preferred):** ≤2 MB, ≤500 rows; columns auto-map (or use the mapper).
+   - **PDF statement:** for **digital/text** statements (not scanned images), ≤5 MB.
+     The PDF is read in memory and **never stored** — only the transaction rows you
+     import are saved. Scanned/image-only PDFs show a clear "can't read it yet" message.
+   Both preview valid / invalid (with reasons) / duplicate rows, then **Import** saves
+   valid, non-duplicate rows with a created/skipped/failed summary.
 7. **Transactions list** — `/transactions` shows everything you've added with a
    **filter bar**: search merchant/description, filter by status / category /
    platform / child / confidence / source, and sort by date / amount / confidence /
@@ -236,8 +244,9 @@ Level Security stops one user from seeing another user's data.**
 1. **Create/open a project** at [supabase.com](https://supabase.com) → *New project*
    (free tier is fine). Wait for it to finish provisioning.
 2. **Run the migrations in order** in *SQL Editor* → *New query*: paste/Run
-   `0001` → `0002` → `0003` → `0004_phase6_weekly_summaries.sql`. All are
-   idempotent. Expect "Success" each time.
+   `0001` → `0002` → `0003` → `0004` → `0005_phase7_pdf_upload_source.sql`. All are
+   idempotent. Expect "Success" each time. (`0005` only widens a check constraint, so
+   the 36-check RLS verification is unchanged.)
 3. **Confirm RLS is on.** *Authentication → Policies* should list policies for
    `profiles`, `families`, `children`, `transactions`, `csv_imports`,
    `transaction_classifications`, `merchant_rules`, and `weekly_summaries`.
@@ -328,7 +337,10 @@ Other current limitations:
 - **No pagination** — pages render the full filtered list (fine for MVP volumes).
 - **Analytics run in memory** per request rather than as SQL aggregates.
 - **Date parsing** handles ISO + US slash formats; other locale formats are flagged
-  invalid in CSV preview for you to fix.
+  invalid in CSV/PDF preview for you to fix.
+- **PDF import is text-only** — scanned/image PDFs aren't supported (no OCR), the raw
+  PDF is never stored, parsing is generic heuristics (no bank login, no AI, no external
+  upload), and unusual statement layouts may need a CSV export instead.
 - **Pricing/billing are static** — no checkout; Spend Lens is in free beta.
 
 ---

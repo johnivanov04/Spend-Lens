@@ -8,6 +8,7 @@ export type SourceType =
   | "manual"
   | "receipt_paste"
   | "csv_upload"
+  | "pdf_upload"
   | "email_forward_later"
   | "bank_feed_later";
 
@@ -185,6 +186,7 @@ const SOURCE_LABELS: Record<SourceType, string> = {
   manual: "Manual",
   receipt_paste: "Receipt",
   csv_upload: "CSV",
+  pdf_upload: "PDF",
   email_forward_later: "Email",
   bank_feed_later: "Bank",
 };

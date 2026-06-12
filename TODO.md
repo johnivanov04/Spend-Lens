@@ -264,6 +264,31 @@ passes**. ✅
 
 ---
 
+## Beta-readiness extension — PDF statement import  ✅
+- [x] Migration `0005_phase7_pdf_upload_source.sql`: add `pdf_upload` to the
+      `transactions.source_type` check (no new table, no RLS change)
+- [x] Pure parser `src/lib/transactions/pdf.ts` (`parsePdfStatementText`,
+      `detectPdfTransactionRows`, `validatePdfTransactionRow`,
+      `convertPdfRowsToTransactionPreview`, `identifyLikelyPdfStatementFormat`,
+      `inferStatementYear`) — generic heuristics, no bank-specific code, no AI
+- [x] Server-only text extraction `src/lib/transactions/pdf-extract.ts` (`unpdf`,
+      in-memory, never stored, never external); `POST /api/transactions/parse-pdf`
+- [x] `pdf_upload` reuses the import pipeline: generalized `importTransactions`
+      (+ `importCsvTransactions`/`importPdfTransactions` wrappers), shared duplicate
+      detection, shared `CsvPreviewTable`, shared import summary
+- [x] UI: `/transactions/upload` CSV/PDF tabs (`UploadTabs`), `PdfUploader`,
+      "CSV preferred" + scanned-not-supported + privacy copy
+- [x] Scanned/image-only PDFs → clear "can't read it yet" message; ambiguous rows
+      marked invalid (never silently imported)
+- [x] **Data handling:** only date/merchant-description/amount/source saved; no raw
+      PDF, no account numbers, no balances
+- [x] Tests: PDF row detection, date/amount parsing, metadata filtering, scanned/empty
+      handling, invalid rows, dup reuse, `source_type=pdf_upload`; PdfUploader +
+      UploadTabs components; parse-pdf route (mocked extraction). **20 new tests;
+      full suite 238 passing; `npm run build` passes; `unpdf` loads in Node**
+
+---
+
 ## Guardrails (apply to every phase)
 - **A phase is not done until its Tests checklist is green (`npm test`).** Extract
   business logic into framework-free modules so it's unit-testable.

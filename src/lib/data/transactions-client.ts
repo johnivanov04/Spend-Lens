@@ -3,7 +3,9 @@ import {
   createManualTransaction,
   createReceiptTransaction,
   importCsvTransactions,
+  importPdfTransactions,
   type CsvImportSummary,
+  type ImportParams,
   type TransactionRow,
 } from "@/lib/data/transactions";
 import type { TransactionDraft } from "@/lib/transactions/transaction";
@@ -30,12 +32,14 @@ export function createReceiptTransactionClient(
 
 export function importCsvTransactionsClient(
   familyId: string,
-  params: {
-    fileName: string | null;
-    rowCount: number;
-    drafts: TransactionDraft[];
-    failedCount: number;
-  },
+  params: ImportParams,
 ): Promise<CsvImportSummary> {
   return importCsvTransactions(createClient(), familyId, params);
+}
+
+export function importPdfTransactionsClient(
+  familyId: string,
+  params: ImportParams,
+): Promise<CsvImportSummary> {
+  return importPdfTransactions(createClient(), familyId, params);
 }

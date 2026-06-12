@@ -181,20 +181,22 @@ export async function createCsvImport(
   return data as CsvImportRow;
 }
 
+export type ImportParams = {
+  fileName: string | null;
+  rowCount: number;
+  drafts: TransactionDraft[];
+  failedCount: number;
+};
+
 /**
- * Import validated CSV rows: skip rows whose duplicate_key already exists in the
- * family or repeats within the batch, insert the rest as csv_upload transactions,
- * and record a csv_imports summary row.
+ * Import validated rows from a file upload (CSV or PDF): skip rows whose
+ * duplicate_key already exists in the family or repeats within the batch, insert
+ * the rest with the given source type, and record an import summary row.
  */
-export async function importCsvTransactions(
+export async function importTransactions(
   supabase: SupabaseClient,
   familyId: string,
-  params: {
-    fileName: string | null;
-    rowCount: number;
-    drafts: TransactionDraft[];
-    failedCount: number;
-  },
+  params: ImportParams & { sourceType: SourceType },
 ): Promise<CsvImportSummary> {
   const existing = await getExistingDuplicateKeys(supabase, familyId);
   const seen = new Set<string>();
@@ -215,7 +217,7 @@ export async function importCsvTransactions(
     }
     seen.add(key);
     toInsert.push(
-      draftToRow(familyId, draft, "csv_upload", {
+      draftToRow(familyId, draft, params.sourceType, {
         source_file_name: params.fileName,
       }),
     );
@@ -247,4 +249,28 @@ export async function importCsvTransactions(
     skipped,
     failed: params.failedCount,
   };
+}
+
+/** Import rows parsed from a CSV upload. */
+export function importCsvTransactions(
+  supabase: SupabaseClient,
+  familyId: string,
+  params: ImportParams,
+): Promise<CsvImportSummary> {
+  return importTransactions(supabase, familyId, {
+    sourceType: "csv_upload",
+    ...params,
+  });
+}
+
+/** Import rows parsed from a PDF statement upload. */
+export function importPdfTransactions(
+  supabase: SupabaseClient,
+  familyId: string,
+  params: ImportParams,
+): Promise<CsvImportSummary> {
+  return importTransactions(supabase, familyId, {
+    sourceType: "pdf_upload",
+    ...params,
+  });
 }
