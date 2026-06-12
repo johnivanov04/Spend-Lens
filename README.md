@@ -65,13 +65,14 @@ Fill in `.env.local`:
 
 ### 3. Supabase setup
 1. Create a new Supabase project.
-2. Run the database migrations in order. The current schema lives in
-   `supabase/migrations/` — open each file in the Supabase **SQL editor** and run
-   it (or use the Supabase CLI). Phase 2 ships
-   `supabase/migrations/0001_phase2_family_schema.sql`, which creates `profiles`,
-   `families`, and `children`, their `updated_at` triggers, a trigger that
-   auto-creates a `profiles` row on signup, and **Row Level Security policies** so
-   each user can only read/write their own family and children.
+2. Run the database migrations **in order**. They live in `supabase/migrations/`
+   — open each file in the Supabase **SQL editor** and run it (or use the Supabase
+   CLI). Each is idempotent.
+   - `0001_phase2_family_schema.sql` — `profiles`, `families`, `children`, their
+     `updated_at` triggers, a trigger that auto-creates a `profiles` row on signup,
+     and **Row Level Security** so each user only reads/writes their own family.
+   - `0002_phase3_transactions.sql` — `transactions` and `csv_imports`, with RLS
+     chained through `families.owner_user_id = auth.uid()`.
 3. Confirm **Row Level Security is enabled** on every table (the migration enables
    it; verify under Authentication → Policies).
 4. Email/password auth is enabled by default in Supabase Auth. For the smoothest
@@ -139,38 +140,40 @@ route behavior.
 3. **Settings (`/settings/family`)** — rename the family, and add / edit / archive
    kids. Archiving soft-deletes (the child is hidden but kept). The app works fine
    with zero kids.
-3. **Manual decode** — `/transactions/new` → enter `APPLE.COM/BILL`, `19.99`,
-   today's date → submit. You should see a classification with confidence + a
-   plain-English explanation; the child stays unassigned unless there's evidence.
-4. **Receipt paste** — paste raw receipt text → preview the extracted transaction(s)
-   → confirm to save + classify.
-5. **CSV upload** — `/transactions/upload` a small CSV (≤500 rows). Confirm columns
-   auto-map (or map them), preview valid/invalid/duplicate rows, then import.
-6. **Review & correct** — open a transaction in the detail drawer, change the
-   platform/category/kid-related/child, add a note, save. It's marked **Parent
-   Verified** and the dashboard totals update.
-7. **Dashboard** — check total likely kid-related spend, needs-review count, and the
-   by-platform / by-category / by-child breakdowns.
-8. **Weekly summary** — `/summary` shows a preview of the last 7 days (email send is
-   mocked unless an email provider is configured).
-9. **Pricing** — `/pricing` shows the static early-access plan (works with no Stripe).
+4. **Manual entry** — `/transactions/new` (Manual tab) → enter `APPLE.COM/BILL`,
+   amount `19.99`, today's date → Save. Try an empty form to see validation, and a
+   negative amount (e.g. `-9.99`) to see the refund flag. It appears in the list.
+5. **Receipt paste** — `/transactions/new` (Paste receipt tab) → paste receipt text
+   → **Extract preview** pulls out merchant/amount/date (deterministic, no AI) →
+   edit if needed → Save. (Real AI extraction/classification is Phase 4.)
+6. **CSV upload** — `/transactions/upload` a small CSV (≤2 MB, ≤500 rows). Columns
+   auto-map (or use the column mapper); preview shows valid / invalid (with reasons)
+   / duplicate rows; **Import** saves valid, non-duplicate rows and shows a summary.
+7. **Transactions list** — `/transactions` shows everything you've added (date,
+   merchant, description, amount, source, status). Status is "Unclassified" until
+   Phase 4.
+8. **Dashboard** — `/dashboard` shows your saved-transaction count and recent
+   transactions. Full spending analytics arrive after classification (Phase 4+).
+
+> Phase 3 ingests and stores transactions only. AI classification, the review/
+> correction workflow, weekly summary, and pricing pages come in later phases.
 
 ---
 
-## Verify Phase 2 against a real Supabase project (RLS)
+## Verify the database against a real Supabase project (RLS)
 
-This confirms the schema, auth, onboarding, family/kid profiles, and — most
-importantly — that **Row Level Security stops one user from seeing another user's
-data.**
+This confirms the schema, auth, onboarding, family/kid profiles, transactions,
+CSV imports, and — most importantly — that **Row Level Security stops one user
+from seeing another user's data.**
 
 ### A. One-time setup
 1. **Create/open a project** at [supabase.com](https://supabase.com) → *New project*
    (free tier is fine). Wait for it to finish provisioning.
-2. **Run the migration.** Open *SQL Editor* → *New query*, paste the full contents
-   of `supabase/migrations/0001_phase2_family_schema.sql`, and click *Run*. It's
-   idempotent, so re-running is safe. You should see "Success".
+2. **Run the migrations in order.** Open *SQL Editor* → *New query*, paste the full
+   contents of `supabase/migrations/0001_phase2_family_schema.sql`, *Run*; then do
+   the same for `0002_phase3_transactions.sql`. Both are idempotent. Expect "Success".
 3. **Confirm RLS is on.** *Authentication → Policies* should list policies for
-   `profiles`, `families`, and `children`, each marked *RLS enabled*.
+   `profiles`, `families`, `children`, `transactions`, and `csv_imports`.
 4. **Grab your keys.** *Project Settings → API*: copy the **Project URL**, the
    **anon public** key, and the **service_role** key.
 5. **Create `.env.local`** in the repo root:
@@ -191,12 +194,13 @@ data.**
 ```bash
 npm run verify:rls
 ```
-This signs in two separate users, has User A create a throwaway family + child, then
-asserts User B **cannot** read, fetch-by-id, insert into, update, or delete A's
-family/children — and that A's data is untouched. It cleans up the throwaway family
-afterward. Expect:
+This signs in two separate users, has User A create a throwaway family, child,
+transaction, and CSV import, then asserts User B **cannot** read, fetch-by-id,
+insert into, update, or delete A's families/children/transactions/csv_imports — and
+that A's data is untouched. It cleans up the throwaway family afterward (cascading to
+its rows). Expect:
 ```
-✓ RLS verification PASSED: all 11 checks. Test family cleaned up.
+✓ RLS verification PASSED: all 20 checks. Test family cleaned up.
 ```
 (If `SUPABASE_SERVICE_ROLE_KEY` is set it creates pre-confirmed test users; otherwise
 disable "Confirm email" first so signups return a session.)

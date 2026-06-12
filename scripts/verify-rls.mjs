@@ -114,6 +114,40 @@ async function main() {
     .single();
   check("User A can add a child to their own family", !kidErr);
 
+  // Phase 3: A also creates a transaction + a csv_import.
+  const { data: txnA, error: txnErr } = await a
+    .from("transactions")
+    .insert({
+      family_id: famA.id,
+      source_type: "manual",
+      merchant: "RLS Test Merchant",
+      amount: 12.34,
+      transaction_date: "2026-06-11",
+    })
+    .select()
+    .single();
+  if (txnErr) {
+    throw new Error(
+      `User A could not create a transaction (is the Phase 3 migration applied?): ${txnErr.message}`,
+    );
+  }
+  check("User A can create a transaction in their own family", Boolean(txnA));
+
+  const { error: impErr } = await a
+    .from("csv_imports")
+    .insert({
+      family_id: famA.id,
+      file_name: "rls-test.csv",
+      row_count: 1,
+      created_count: 1,
+      skipped_count: 0,
+      failed_count: 0,
+      status: "imported",
+    })
+    .select()
+    .single();
+  check("User A can create a csv_import in their own family", !impErr);
+
   // --- User B: must not see or touch A's data ---
   const b = await signInClient(B);
 
@@ -171,12 +205,79 @@ async function main() {
     .select();
   check("User B cannot delete User A's family", (bDel ?? []).length === 0);
 
+  // transactions + csv_imports isolation (Phase 3)
+  const { data: bTxnAll } = await b
+    .from("transactions")
+    .select("id, family_id");
+  check(
+    "User B cannot see User A's transactions",
+    !(bTxnAll ?? []).some((t) => t.family_id === famA.id),
+    `B sees ${bTxnAll?.length ?? 0} transaction row(s) total`,
+  );
+
+  const { data: bTxnById } = await b
+    .from("transactions")
+    .select("*")
+    .eq("id", txnA.id);
+  check(
+    "User B cannot fetch User A's transaction by id",
+    (bTxnById ?? []).length === 0,
+  );
+
+  const { error: bTxnInsErr } = await b
+    .from("transactions")
+    .insert({
+      family_id: famA.id,
+      source_type: "manual",
+      merchant: "Intruder",
+      amount: 1,
+      transaction_date: "2026-06-11",
+    })
+    .select()
+    .single();
+  check(
+    "User B cannot insert a transaction into User A's family",
+    Boolean(bTxnInsErr),
+    bTxnInsErr ? "rejected by RLS" : "INSERT unexpectedly succeeded",
+  );
+
+  const { data: bTxnUpd } = await b
+    .from("transactions")
+    .update({ merchant: "hacked" })
+    .eq("id", txnA.id)
+    .select();
+  check("User B cannot update User A's transaction", (bTxnUpd ?? []).length === 0);
+
+  const { data: bTxnDel } = await b
+    .from("transactions")
+    .delete()
+    .eq("id", txnA.id)
+    .select();
+  check("User B cannot delete User A's transaction", (bTxnDel ?? []).length === 0);
+
+  const { data: bImports } = await b
+    .from("csv_imports")
+    .select("id, family_id");
+  check(
+    "User B cannot see User A's csv_imports",
+    !(bImports ?? []).some((i) => i.family_id === famA.id),
+    `B sees ${bImports?.length ?? 0} csv_import row(s) total`,
+  );
+
   // --- User A: still intact ---
   const { data: aFam } = await a.from("families").select("*").eq("id", famA.id);
   check("User A can still read their own family", (aFam ?? []).length === 1);
   check(
     "User A's family name is unchanged after B's attempts",
     (aFam ?? [])[0]?.name === TEST_FAMILY_NAME,
+  );
+  const { data: aTxn } = await a
+    .from("transactions")
+    .select("merchant")
+    .eq("id", txnA.id);
+  check(
+    "User A's transaction is unchanged after B's attempts",
+    (aTxn ?? [])[0]?.merchant === "RLS Test Merchant",
   );
 
   // --- Cleanup the throwaway family (cascades to the child) ---

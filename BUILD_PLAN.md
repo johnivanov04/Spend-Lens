@@ -543,3 +543,24 @@ app stays usable while classification pending.
   users and asserts that User B cannot read/fetch/insert/update/delete User A's
   family/children. Run it after applying the migration to a real project. A manual
   two-account checklist is in the README.
+
+### Phase 3 implementation notes (as built)
+- **Migration `0002_phase3_transactions.sql`:** `transactions` + `csv_imports` with RLS
+  chained through `families.owner_user_id = auth.uid()`, plus `updated_at` trigger on
+  transactions.
+- **No `/api/*` routes (deviation from §6).** Ingestion uses the same pattern as Phase 2:
+  pure logic in `src/lib/transactions/*` + a data layer in `src/lib/data/transactions.ts`
+  + browser-client bindings (`transactions-client.ts`), all guarded by RLS. This keeps
+  the code uniformly testable; dedicated route handlers can be added in Phase 4 when the
+  AI classifier (which needs the server-only key) lands.
+- **`duplicate_key` is a non-unique index, not a constraint.** Duplicates are likely, not
+  certain, so they're detected/skipped in-app (within-file + against existing keys at
+  import) rather than hard-blocked — a parent can still keep two genuine identical charges.
+- **Receipt extraction is deterministic (no AI):** `extractReceiptPreview` uses simple
+  heuristics (first line = merchant, "total" line or largest amount, first date token) and
+  always lets the parent edit before saving. Real AI extraction/classification is Phase 4.
+- **`csv_imports.status = "imported"`** in Phase 3 (no classifier yet); Phase 4 can move to
+  `classification_pending`.
+- **Status is "Unclassified"** for all Phase 3 transactions (no `transaction_classifications`
+  rows yet). Dashboard shows count + recent only; spend analytics wait for classification.
+- **RLS verification extended** to cover transactions + csv_imports isolation (20 checks).
