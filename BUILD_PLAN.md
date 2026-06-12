@@ -520,3 +520,22 @@ app stays usable while classification pending.
    amount | transaction_date)`; partial unique index enforces skip/flag on import.
 8. **Status is derived, not stored** — see §5 derivation table — so corrections and
    re-classification can't leave a stale status column.
+
+### Phase 2 implementation notes (as built)
+- **Migrations live in `supabase/migrations/`.** Phase 2 = `0001_phase2_family_schema.sql`
+  (profiles/families/children, `updated_at` triggers, a `handle_new_user` trigger that
+  auto-creates a `profiles` row on signup, and full RLS). Idempotent; run via the
+  Supabase SQL editor or CLI. (Earlier docs referenced a single `supabase/schema.sql`;
+  superseded by numbered migrations.)
+- **Data-access layer:** `src/lib/data/family.ts` holds pure functions that take a
+  `SupabaseClient` (works server- or browser-side, unit-testable with a mock client);
+  `src/lib/data/family-client.ts` binds the browser client for Client Components.
+- **Onboarding gate:** the no-family → `/onboarding` redirect lives in the `(app)`
+  server layout (uses `getFamilyForUser`), not middleware — keeps DB access off the
+  edge and out of every request. `/onboarding` redirects to `/dashboard` once a family
+  exists.
+- **Family/kid mutations** use the authenticated **browser** Supabase client guarded by
+  RLS (not server actions) — secure and straightforward to test by mocking the client
+  service. Kid delete is **soft** (`archived_at`); the UI hides archived kids.
+- **Auth-confirmation UX:** local testing is smoothest with Supabase "Confirm email"
+  disabled (documented in README); otherwise the `/auth/confirm` route handles the link.

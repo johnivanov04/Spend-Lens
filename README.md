@@ -65,11 +65,18 @@ Fill in `.env.local`:
 
 ### 3. Supabase setup
 1. Create a new Supabase project.
-2. In the SQL editor, run the schema + RLS policies (see `BUILD_PLAN.md` §5;
-   the runnable SQL will live in `supabase/schema.sql` once Phase 2 is built).
-3. Confirm **Row Level Security is enabled** on every table.
-4. Email/password auth is enabled by default in Supabase Auth — no extra config
-   needed for the MVP.
+2. Run the database migrations in order. The current schema lives in
+   `supabase/migrations/` — open each file in the Supabase **SQL editor** and run
+   it (or use the Supabase CLI). Phase 2 ships
+   `supabase/migrations/0001_phase2_family_schema.sql`, which creates `profiles`,
+   `families`, and `children`, their `updated_at` triggers, a trigger that
+   auto-creates a `profiles` row on signup, and **Row Level Security policies** so
+   each user can only read/write their own family and children.
+3. Confirm **Row Level Security is enabled** on every table (the migration enables
+   it; verify under Authentication → Policies).
+4. Email/password auth is enabled by default in Supabase Auth. For the smoothest
+   local testing you can disable "Confirm email" (Authentication → Providers →
+   Email) so signups log in immediately; otherwise use the emailed confirmation link.
 
 ### 4. Run
 ```bash
@@ -107,9 +114,11 @@ the per-phase checklists in `TODO.md`).
 - Pure business logic (route protection, CSV parsing, validation, aggregation,
   etc.) is extracted into framework-free modules so it can be unit-tested directly.
 
-**What's covered today (Phase 1):** utility helpers, route-protection logic,
-Supabase client construction, UI primitives, the app nav, and the landing / login
-/ signup / dashboard pages — 39 tests.
+**What's covered today (Phases 1–2):** utility helpers, route-protection logic,
+Supabase client construction, UI primitives, the app nav, the landing / login /
+signup / dashboard pages, the family/child validators, the families + children
+data-access layer (against a mocked Supabase client), and the onboarding flow,
+kid manager, family-name form, and settings view — 68 tests.
 
 **Priority targets as features land:** CSV parsing, column mapping, transaction
 validation, duplicate detection, AI JSON-schema validation, confidence-score
@@ -122,8 +131,14 @@ route behavior.
 
 1. **Auth** — sign up at `/signup`; you're redirected to `/onboarding`. Log out and
    confirm protected routes bounce you to `/login`.
-2. **Family & kids** — create a family; optionally add kid nicknames. The app works
-   fine with zero kids.
+2. **Onboarding (family & kids)** — Step 1: enter a family name (try submitting it
+   empty to see validation). Step 2: optionally add one or more kids by first
+   name/nickname, or skip. Step 3: Continue to the dashboard. Visiting `/onboarding`
+   again after setup redirects you to the dashboard; visiting any app route without
+   a family redirects you back to onboarding.
+3. **Settings (`/settings/family`)** — rename the family, and add / edit / archive
+   kids. Archiving soft-deletes (the child is hidden but kept). The app works fine
+   with zero kids.
 3. **Manual decode** — `/transactions/new` → enter `APPLE.COM/BILL`, `19.99`,
    today's date → submit. You should see a classification with confidence + a
    plain-English explanation; the child stays unassigned unless there's evidence.

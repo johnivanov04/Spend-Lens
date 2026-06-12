@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getFamilyForUser } from "@/lib/data/family";
 import { AppNav } from "@/components/app-nav";
 
 // Authenticated area must never be statically cached.
@@ -23,6 +24,10 @@ export default async function AppLayout({
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  // Gate the app on completed onboarding: no family yet -> onboarding.
+  const family = await getFamilyForUser(supabase);
+  if (!family) redirect("/onboarding");
 
   return (
     <div className="flex min-h-full flex-1 flex-col">

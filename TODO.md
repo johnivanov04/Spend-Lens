@@ -61,28 +61,32 @@ Supabase keys in `.env.local`; everything is wired and ready for them.
 
 ---
 
-## Phase 2 — Family & kid profiles  (est. 1 day)
-- [ ] SQL: create all tables from `BUILD_PLAN.md` §5
-- [ ] **RLS policies on every table** (ownership chains to `auth.uid()`)
-- [ ] `profiles` row created on signup
-- [ ] `/onboarding`: create `family` (name required) → redirect to dashboard
-- [ ] Kid CRUD: add (nickname/first name), edit, archive (`archived_at`)
-- [ ] `/settings/family`: edit family name + manage kids
-- [ ] App works with **zero** kids (assignment nullable, no forced guessing)
-- [ ] Redirect logged-in users with no family back to `/onboarding`
+## Phase 2 — Family & kid profiles  (est. 1 day)  ✅
+- [x] SQL migration: `profiles`, `families`, `children` (`supabase/migrations/0001_phase2_family_schema.sql`)
+- [x] **RLS policies on every table** (ownership chains to `auth.uid()`)
+- [x] `profiles` row created on signup (trigger on `auth.users`)
+- [x] `/onboarding`: 3 steps — create `family` (name required) → optional kids → continue
+- [x] Kid CRUD: add (nickname/first name), edit, archive (`archived_at` soft-delete)
+- [x] `/settings/family`: edit family name + manage kids
+- [x] App works with **zero** kids (assignment nullable, no forced guessing)
+- [x] Redirect logged-in users with no family back to `/onboarding` (in `(app)` layout)
+- [x] Nav exposes Settings/Family when logged in (already present from Phase 1)
 
-**Tests**
-- [ ] Unit: family/kid form validation (name required; no empty kid name)
-- [ ] Unit: "no family profile → redirect to /onboarding" decision (pure helper)
-- [ ] Component: onboarding family form + kid add/edit/archive UI
-- [ ] Integration: family + kid CRUD against a mocked Supabase client (no network)
-- [ ] **Protected route/auth behavior** regression stays green
-- [ ] RLS: integration test or documented manual SQL check that a 2nd user cannot
-      read/write the first user's family data
+**Tests** ✅
+- [x] Unit: family/kid form validation (`validateFamilyName`, `validateChildName`)
+- [x] Unit: "no family → null" data access (`getFamilyForUser`) used by the redirect gate
+- [x] Component: onboarding flow (renders, validation, submit creates family → step 2)
+- [x] Component: kid add/edit/archive flows against the mocked Supabase service
+- [x] Component: family-name form (renders, validation, save) + settings view renders
+- [x] Integration: families + children data layer against a mocked Supabase client (no network)
+- [x] Protected route/auth behavior regression stays green
+- [x] RLS: enforced in the migration; **live 2nd-user check is a documented manual
+      step** (no live DB in this environment) — see completion report
+- [x] **29 new tests; full suite 68 passing**
 
 **Done when:** parent creates a family; can add/edit/archive kids; a second test
 user cannot read or write the first user's family data (RLS verified); **Phase 2
-tests pass**.
+tests pass**. ✅ (RLS code-complete; live cross-user verification pending a Supabase project.)
 
 ---
 
