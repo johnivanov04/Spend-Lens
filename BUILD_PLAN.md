@@ -411,7 +411,7 @@ classify; extracted candidates are previewed, then classified after the user sav
 
 > Build in order. Use mock data/classifier before wiring external services.
 > Report after each phase: files created, files changed, how to run, how to test,
-> what remains. When ambiguous, take the simpler MVP path.
+> **tests added + results**, what remains. When ambiguous, take the simpler MVP path.
 
 | Phase | Scope | Est. | Acceptance |
 |------|------|------|-----------|
@@ -424,14 +424,41 @@ classify; extracted candidates are previewed, then classified after the user sav
 | **6 — Weekly summary** | Summary generator, `/summary` preview page, optional email behind provider flag (mocked) | 1 d | Parent views weekly summary; reflects recent txns; "no kid spend" + review-prompt states |
 | **7 — Polish & launch prep** | Loading/error/empty states, responsive pass, seed/mock data, privacy copy, `/pricing`, README finalize | 1–2 d | Demo-ready; new tester completes full flow from README end-to-end |
 
+### Definition of Done — applies to **every** phase
+A phase is complete only when, **in addition** to the acceptance criteria above:
+- **unit tests** cover its business logic,
+- **component tests** cover its important UI,
+- **integration-style tests** cover API/data flow where practical,
+- **manual test steps** are documented, and
+- the full suite passes (`npm test`).
+
+Tests never make real network calls and never require real env vars — Supabase, AI
+APIs, Stripe, and email providers are mocked. Per-phase test checklists live in
+`TODO.md`. (Phase 1 also established the test harness; see §10.)
+
 ---
 
 ## 10. Testing plan
 
+**Stack & conventions**
+- **Vitest** (jsdom) for unit + component tests; **React Testing Library** +
+  `@testing-library/jest-dom` for components; **Playwright** for E2E once core flows
+  exist (added in Phase 7, not before).
+- Tests live in `__tests__/` mirroring `src/`. Run with `npm test` (`test:watch`,
+  `test:coverage` also available).
+- No real network calls, no real env vars. Mock Supabase, AI APIs, Stripe, email;
+  stub env with `vi.stubEnv`. `next/navigation` + `next/link` are stubbed in
+  `vitest.setup.ts`.
+- Extract business logic into framework-free modules (e.g. `src/lib/auth-routes.ts`)
+  so it's directly unit-testable without the Next runtime or a database.
+- **Phase 1 status:** harness in place; 39 tests passing (utils, route-protection,
+  Supabase client construction, UI primitives, nav, and landing/login/signup/
+  dashboard pages).
+
 **Unit:** CSV parsing · column mapping · amount normalization (incl. negatives/refunds)
 · date parsing · duplicate-key generation · AI JSON schema validation (Zod) ·
 confidence-band → label logic · dashboard aggregation · correction-override (latest
-correction wins) · status derivation.
+correction wins) · status derivation · route-protection logic.
 
 **Integration:** signup → onboarding → dashboard · manual → classify → dashboard ·
 receipt paste → extract → confirm → classify · CSV → preview → import → classify ·

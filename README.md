@@ -79,12 +79,46 @@ Open http://localhost:3000.
 
 ### 5. Tests
 ```bash
-npm test
+npm test            # run the unit/component suite once
+npm run test:watch  # re-run on change while developing
+npm run test:coverage  # run with a V8 coverage report
 ```
 
 ---
 
-## How to test the core flows
+## Testing
+
+Automated tests are **mandatory** — no phase is considered complete until its
+relevant tests are added and passing (see `BUILD_PLAN.md` Definition of Done and
+the per-phase checklists in `TODO.md`).
+
+**Stack**
+- **Vitest** — test runner (jsdom environment)
+- **React Testing Library** + `@testing-library/jest-dom` — component tests
+- **Playwright** — reserved for end-to-end tests once core flows exist (not added yet)
+
+**Conventions**
+- Tests live in `__tests__/` mirroring `src/` (e.g. `__tests__/lib`, `__tests__/components`, `__tests__/pages`).
+- Tests never make real network calls and never require real environment
+  variables. External services (Supabase, AI APIs, Stripe, email) are mocked, and
+  env vars are stubbed with `vi.stubEnv`.
+- `next/navigation` and `next/link` are stubbed globally in `vitest.setup.ts` so
+  router-dependent components render under jsdom.
+- Pure business logic (route protection, CSV parsing, validation, aggregation,
+  etc.) is extracted into framework-free modules so it can be unit-tested directly.
+
+**What's covered today (Phase 1):** utility helpers, route-protection logic,
+Supabase client construction, UI primitives, the app nav, and the landing / login
+/ signup / dashboard pages — 39 tests.
+
+**Priority targets as features land:** CSV parsing, column mapping, transaction
+validation, duplicate detection, AI JSON-schema validation, confidence-score
+logic, parent-correction override logic, dashboard aggregation, and auth/protected-
+route behavior.
+
+---
+
+## How to test the core flows (manual)
 
 1. **Auth** — sign up at `/signup`; you're redirected to `/onboarding`. Log out and
    confirm protected routes bounce you to `/login`.

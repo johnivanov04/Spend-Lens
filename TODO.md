@@ -3,7 +3,14 @@
 Ordered implementation checklist. **This file is the source of truth for build
 order.** Do not jump ahead; do not pull V2 features in. Build with mock data before
 wiring external services. After each phase, report: files created, files changed,
-how to run, how to test, what remains.
+how to run, how to test, tests added + results, what remains.
+
+**Testing is mandatory.** No phase is complete until its **Tests** checklist is
+green (`npm test`). Each phase includes unit tests for business logic, component
+tests for important UI, integration-style tests for API/data flow where practical,
+and clear manual test steps. Tests never make real network calls and never require
+real env vars (Supabase, AI, Stripe, email are mocked). See `BUILD_PLAN.md` for the
+testing strategy and the per-phase Definition of Done.
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
@@ -34,9 +41,19 @@ the founder approves the plan.
 - [x] Email-confirmation handler (`/auth/confirm`) + sign-out route
 - [x] Placeholder pages for nav routes so the app is fully navigable
 
+**Tests** ✅
+- [x] Testing foundation: Vitest + React Testing Library + jsdom; `test` /
+      `test:watch` / `test:coverage` scripts; global mocks for `next/navigation` + `next/link`
+- [x] Unit: `cn`, `formatCurrency`, `isSupabaseConfigured`
+- [x] Unit: route-protection logic (`isProtectedRoute`, `getAuthRedirect`)
+- [x] Unit: Supabase browser client constructs with mocked env (no network)
+- [x] Component: UI primitives (Button, Alert), AppNav, EmptyState, SectionPlaceholder
+- [x] Component: landing, login, signup, and dashboard pages render
+- [x] **39 tests passing**
+
 **Done when:** app runs locally (`npm run dev`); a user can sign up, log in, and log
 out; logged-out users hitting protected routes are redirected to `/login`; auth
-state is reflected in the UI.
+state is reflected in the UI; **Phase 1 tests pass**.
 
 **Status:** Build passes; dev server verified — landing/login/signup render and
 `/dashboard` redirects to `/login`. Live auth (sign up / log in / log out) needs
@@ -54,8 +71,18 @@ Supabase keys in `.env.local`; everything is wired and ready for them.
 - [ ] App works with **zero** kids (assignment nullable, no forced guessing)
 - [ ] Redirect logged-in users with no family back to `/onboarding`
 
+**Tests**
+- [ ] Unit: family/kid form validation (name required; no empty kid name)
+- [ ] Unit: "no family profile → redirect to /onboarding" decision (pure helper)
+- [ ] Component: onboarding family form + kid add/edit/archive UI
+- [ ] Integration: family + kid CRUD against a mocked Supabase client (no network)
+- [ ] **Protected route/auth behavior** regression stays green
+- [ ] RLS: integration test or documented manual SQL check that a 2nd user cannot
+      read/write the first user's family data
+
 **Done when:** parent creates a family; can add/edit/archive kids; a second test
-user cannot read or write the first user's family data (RLS verified).
+user cannot read or write the first user's family data (RLS verified); **Phase 2
+tests pass**.
 
 ---
 
@@ -74,9 +101,20 @@ user cannot read or write the first user's family data (RLS verified).
 - [ ] `POST /api/transactions/upload-csv` → import + `csv_imports` summary row
 - [ ] Import summary UI: created / skipped / failed
 
+**Tests** (priority targets for this phase)
+- [ ] Unit: **CSV parsing** (headers, quoted fields, messy/blank rows)
+- [ ] Unit: **column mapping** (auto-detect common columns + manual override)
+- [ ] Unit: **transaction validation** (amount numeric, valid date, merchant/description
+      required, negative/refund amounts)
+- [ ] Unit: **duplicate detection** (`duplicate_key` generation + skip/flag)
+- [ ] Unit: amount + date normalization
+- [ ] Component: ManualTransactionForm, ReceiptPasteForm, CSVUploader, ColumnMapper, preview
+- [ ] Integration: parse-receipt + upload-csv routes with mocked AI + Supabase (no network)
+- [ ] Manual: paste `APPLE.COM/BILL`; upload a sample CSV; confirm invalid + duplicate rows shown
+
 **Done when:** parent can add a transaction manually, paste a receipt and see an
 extracted preview, and upload a CSV that imports valid rows while clearly explaining
-invalid/duplicate rows. Transactions are saved in Supabase.
+invalid/duplicate rows. Transactions are saved in Supabase; **Phase 3 tests pass**.
 
 ---
 
@@ -93,9 +131,21 @@ invalid/duplicate rows. Transactions are saved in Supabase.
 - [ ] `POST /api/transactions/classify` (one or many ids; retry-able)
 - [ ] Wire classification into manual create + CSV import (batch, async-capable)
 
+**Tests** (priority targets for this phase)
+- [ ] Unit: **AI JSON-schema validation** (Zod) — valid, malformed, missing fields,
+      out-of-enum platform/category, confidence out of range
+- [ ] Unit: **confidence-score logic** → band/label + `needs_review` forcing
+      (<0.70, or uncertain child on a kid-related charge)
+- [ ] Unit: merchant-rule short-circuit (high-confidence rule applied before AI call)
+- [ ] Unit: retry/fallback (invalid JSON → stored as Needs Review, never throws)
+- [ ] Integration: classify route with **mocked AI provider** (no network); assert
+      no child assigned without evidence
+- [ ] Manual: classify a known charge; force a bad-JSON response → confirm safe fallback
+
 **Done when:** manual and uploaded transactions receive a classification with
 platform/category/kid-related/confidence/explanation; low-confidence results are
-marked **Needs Review**; invalid AI output is handled safely and never breaks the app.
+marked **Needs Review**; invalid AI output is handled safely and never breaks the
+app; **Phase 4 tests pass**.
 
 ---
 
@@ -118,9 +168,20 @@ marked **Needs Review**; invalid AI output is handled safely and never breaks th
 - [ ] Optionally create/update a `merchant_rule` from a correction
 - [ ] "Not kid-related" excluded from kid totals; parent-verified visually distinct
 
+**Tests** (priority targets for this phase)
+- [ ] Unit: **dashboard aggregation logic** (totals; by platform/category/child;
+      needs-review count; excludes "not kid-related"; nets refunds/negatives)
+- [ ] Unit: **parent-correction override logic** (latest correction wins; marks
+      Parent Verified; totals recalculate)
+- [ ] Component: TransactionTable, filters/search, TransactionDetailDrawer,
+      CorrectionForm, Confidence/KidRelated/ReviewStatus badges
+- [ ] Integration: correction PATCH → updated summary via mocked Supabase
+- [ ] Manual: correct a Roblox txn → Parent Verified + dashboard totals update
+
 **Done when:** dashboard summaries are accurate and load <2 s for ~1,000 txns;
 parent corrections persist and update totals; corrected transactions are visibly
-marked Parent Verified; empty states guide the user to add transactions.
+marked Parent Verified; empty states guide the user to add transactions; **Phase 5
+tests pass**.
 
 ---
 
@@ -131,8 +192,17 @@ marked Parent Verified; empty states guide the user to add transactions.
 - [ ] `MailProvider` interface; email send **mocked** unless provider env configured
 - [ ] States: no kid-related spend; review prompt when items need review
 
+**Tests**
+- [ ] Unit: weekly summary generator (7-day window; totals; top platforms/categories;
+      review-needed count)
+- [ ] Unit: empty/"no kid-related spend" + review-prompt states
+- [ ] Component: summary preview page
+- [ ] Integration: `MailProvider` mock — email is NOT sent when no provider configured
+- [ ] Manual: `/summary` reflects the last 7 days of transactions
+
 **Done when:** parent can view a weekly summary preview that reflects recent
-transactions; email is cleanly mocked when no provider is configured.
+transactions; email is cleanly mocked when no provider is configured; **Phase 6
+tests pass**.
 
 ---
 
@@ -145,12 +215,24 @@ transactions; email is cleanly mocked when no provider is configured.
 - [ ] Finalize `README.md` (setup, env, Supabase, run, test core flows)
 - [ ] End-to-end smoke test of the full flow from a clean clone
 
+**Tests**
+- [ ] **Add Playwright** now that core flows exist (E2E env + config)
+- [ ] E2E: signup → onboarding → add transaction → classify → correct → dashboard
+- [ ] Component: loading / error / empty states across pages
+- [ ] Full `npm test` suite green; coverage reviewed for the priority-target modules
+- [ ] Manual: full end-to-end smoke from a clean clone following the README
+
 **Done when:** the app is demo-ready; a brand-new tester can follow the README and
-complete every core flow end-to-end locally.
+complete every core flow end-to-end locally; **the full test suite (unit + E2E)
+passes**.
 
 ---
 
 ## Guardrails (apply to every phase)
+- **A phase is not done until its Tests checklist is green (`npm test`).** Extract
+  business logic into framework-free modules so it's unit-testable.
+- Tests must not make real network calls or require real env vars; mock Supabase,
+  AI APIs, Stripe, and email providers.
 - Do **not** implement V1 non-goals: bank feeds, card issuing, SMS, push, mobile app,
   deep platform integrations, refund automation, screen-time, enterprise, child accounts.
 - Keep API + service-role keys server-side; browser sees only the anon key.

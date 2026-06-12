@@ -1,23 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-
-/** Route prefixes that require an authenticated session. */
-const PROTECTED_PREFIXES = [
-  "/dashboard",
-  "/transactions",
-  "/settings",
-  "/onboarding",
-  "/summary",
-];
-
-/** Auth pages a signed-in user should be bounced away from. */
-const AUTH_PAGES = ["/login", "/signup"];
-
-function isProtected(pathname: string) {
-  return PROTECTED_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
-}
+import { getAuthRedirect } from "@/lib/auth-routes";
 
 /**
  * Refreshes the Supabase session cookie on every request and enforces route
@@ -54,20 +37,9 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
-
-  if (!user && isProtected(pathname)) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/login";
-    redirectUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  if (user && AUTH_PAGES.includes(pathname)) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/dashboard";
-    redirectUrl.search = "";
-    return NextResponse.redirect(redirectUrl);
+  const redirect = getAuthRedirect(request.nextUrl.pathname, Boolean(user));
+  if (redirect) {
+    return NextResponse.redirect(new URL(redirect, request.url));
   }
 
   return supabaseResponse;
