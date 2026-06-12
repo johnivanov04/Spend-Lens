@@ -157,6 +157,75 @@ route behavior.
 
 ---
 
+## Verify Phase 2 against a real Supabase project (RLS)
+
+This confirms the schema, auth, onboarding, family/kid profiles, and — most
+importantly — that **Row Level Security stops one user from seeing another user's
+data.**
+
+### A. One-time setup
+1. **Create/open a project** at [supabase.com](https://supabase.com) → *New project*
+   (free tier is fine). Wait for it to finish provisioning.
+2. **Run the migration.** Open *SQL Editor* → *New query*, paste the full contents
+   of `supabase/migrations/0001_phase2_family_schema.sql`, and click *Run*. It's
+   idempotent, so re-running is safe. You should see "Success".
+3. **Confirm RLS is on.** *Authentication → Policies* should list policies for
+   `profiles`, `families`, and `children`, each marked *RLS enabled*.
+4. **Grab your keys.** *Project Settings → API*: copy the **Project URL**, the
+   **anon public** key, and the **service_role** key.
+5. **Create `.env.local`** in the repo root:
+   ```bash
+   cp .env.example .env.local
+   ```
+   Fill in:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR-ANON-KEY
+   SUPABASE_SERVICE_ROLE_KEY=YOUR-SERVICE-ROLE-KEY
+   ```
+6. **(For the manual flow)** the smoothest local testing is with email confirmation
+   off: *Authentication → Providers → Email* → turn **Confirm email** off. (The
+   automated script below doesn't need this if `SUPABASE_SERVICE_ROLE_KEY` is set.)
+
+### B. Automated RLS check (fastest)
+```bash
+npm run verify:rls
+```
+This signs in two separate users, has User A create a throwaway family + child, then
+asserts User B **cannot** read, fetch-by-id, insert into, update, or delete A's
+family/children — and that A's data is untouched. It cleans up the throwaway family
+afterward. Expect:
+```
+✓ RLS verification PASSED: all 11 checks. Test family cleaned up.
+```
+(If `SUPABASE_SERVICE_ROLE_KEY` is set it creates pre-confirmed test users; otherwise
+disable "Confirm email" first so signups return a session.)
+
+### C. Manual two-account RLS checklist
+Use two browsers (or a normal + incognito window) so you have two sessions.
+
+- [ ] **User A** — `npm run dev`, sign up at `/signup`, complete onboarding: create a
+      family (e.g. "Family A") and add a kid (e.g. "Alex").
+- [ ] **User A** — confirm the dashboard loads and `/settings/family` shows "Family A"
+      and "Alex".
+- [ ] **User B** — in the other browser, sign up with a different email and complete
+      onboarding with a clearly different family (e.g. "Family B").
+- [ ] **User B** — `/settings/family` shows **only** "Family B" and B's kids — never
+      "Family A" or "Alex".
+- [ ] **User B** — the dashboard shows only B's context; there is no way to reach A's
+      data through the UI.
+- [ ] **No-family redirect** — a brand-new third user is sent to `/onboarding` and
+      cannot reach `/dashboard` until they create a family.
+- [ ] **Re-onboarding guard** — after setup, visiting `/onboarding` redirects to
+      `/dashboard`.
+- [ ] **(Optional, deeper) direct API probe** — while logged in as User B, open the
+      browser devtools console and run a read against A's table; RLS should return an
+      empty set, never A's rows. The automated script in **B** does this for you.
+
+If every box checks out, Phase 2's data isolation is verified.
+
+---
+
 ## Project documents
 
 - `BUILD_PLAN.md` — MVP definition, flows, routes, DB schema, API, AI schema + prompt,

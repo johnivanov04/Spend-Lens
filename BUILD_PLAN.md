@@ -539,3 +539,7 @@ app stays usable while classification pending.
   service. Kid delete is **soft** (`archived_at`); the UI hides archived kids.
 - **Auth-confirmation UX:** local testing is smoothest with Supabase "Confirm email"
   disabled (documented in README); otherwise the `/auth/confirm` route handles the link.
+- **Live RLS verification:** `scripts/verify-rls.mjs` (`npm run verify:rls`) signs in two
+  users and asserts that User B cannot read/fetch/insert/update/delete User A's
+  family/children. Run it after applying the migration to a real project. A manual
+  two-account checklist is in the README.

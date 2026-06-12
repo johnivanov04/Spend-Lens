@@ -80,8 +80,9 @@ Supabase keys in `.env.local`; everything is wired and ready for them.
 - [x] Component: family-name form (renders, validation, save) + settings view renders
 - [x] Integration: families + children data layer against a mocked Supabase client (no network)
 - [x] Protected route/auth behavior regression stays green
-- [x] RLS: enforced in the migration; **live 2nd-user check is a documented manual
-      step** (no live DB in this environment) — see completion report
+- [x] RLS: enforced in the migration; live 2nd-user verification available via
+      `npm run verify:rls` (automated script) + a manual checklist in the README —
+      runs once a Supabase project + keys exist (no live DB in this environment yet)
 - [x] **29 new tests; full suite 68 passing**
 
 **Done when:** parent creates a family; can add/edit/archive kids; a second test
